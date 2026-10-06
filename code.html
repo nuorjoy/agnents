@@ -1,0 +1,2708 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" class="scroll-smooth">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>محلّل التحويلات الذكي — Super AI v0.4.2</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        fontFamily: { sans: ['Cairo','system-ui','sans-serif'], mono: ['IBM Plex Mono','monospace'] },
+        colors: {
+          brand: {50:'#eef6ff',100:'#d9ebff',200:'#bcdcff',300:'#8ec6ff',400:'#599fff',500:'#337bff',600:'#1d5cf5',700:'#1648e1',800:'#183cb6',900:'#1a378f',950:'#142357'},
+          ink: {900:'#050a17',800:'#0a1225',700:'#0f1830'}
+        },
+        boxShadow: {
+          soft: '0 10px 40px -12px rgba(15,23,42,.18)',
+          glow: '0 0 0 1px rgba(51,123,255,.25), 0 12px 40px -10px rgba(51,123,255,.45)',
+        }
+      }
+    }
+  }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.4/dist/tesseract.min.js"></script>
+
+<style>
+  html { -webkit-tap-highlight-color: transparent; }
+  body { font-family: 'Cairo', sans-serif; }
+  .glass { backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+  .dark ::-webkit-scrollbar-thumb { background: #1e293b; }
+  .fade-in { animation: fadeIn .5s cubic-bezier(.22,1,.36,1) both; }
+  @keyframes fadeIn { from { opacity:0; transform: translateY(10px);} to {opacity:1; transform:none;} }
+  .pop-in { animation: popIn .35s cubic-bezier(.34,1.56,.64,1) both; }
+  @keyframes popIn { from { opacity:0; transform: scale(.92);} to {opacity:1; transform:scale(1);} }
+  .pulse-ring { animation: pulseRing 2.2s ease-out infinite; }
+  @keyframes pulseRing { 0%{box-shadow:0 0 0 0 rgba(51,123,255,.45)} 70%{box-shadow:0 0 0 22px rgba(51,123,255,0)} 100%{box-shadow:0 0 0 0 rgba(51,123,255,0)} }
+  .dropzone-active { border-color:#337bff !important; background: rgba(51,123,255,.06); transform: scale(1.005); }
+  .stream-item { animation: streamIn .4s ease-out both; }
+  @keyframes streamIn { from { opacity:0; transform: translateX(-12px);} to {opacity:1; transform:none;} }
+  .spin-slow { animation: spin 8s linear infinite; }
+  .grid-bg {
+    background-image:
+      linear-gradient(rgba(51,123,255,.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(51,123,255,.05) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+  .scanline { position: relative; overflow: hidden; }
+  .scanline::after {
+    content:''; position: absolute; inset: 0;
+    background: linear-gradient(180deg, transparent 0%, rgba(51,123,255,.08) 50%, transparent 100%);
+    animation: scan 3s linear infinite; pointer-events: none;
+  }
+  @keyframes scan { 0%{ transform: translateY(-100%);} 100%{ transform: translateY(100%);} }
+  tr.hist-row { cursor: pointer; transition: background .15s; }
+  .no-anim * { animation: none !important; transition: none !important; }
+  body.font-lg { font-size: 17px; }
+  body.font-sm { font-size: 14px; }
+  .switch { position: relative; width: 46px; height: 26px; display:inline-block; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch .slider { position: absolute; cursor: pointer; inset: 0; background: #cbd5e1; border-radius: 26px; transition: .3s; }
+  .dark .switch .slider { background: #334155; }
+  .switch .slider:before { content:''; position: absolute; height: 20px; width: 20px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: .3s; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+  .switch input:checked + .slider { background: #337bff; }
+  .switch input:checked + .slider:before { transform: translateX(20px); }
+  .nav-item-active { background: rgba(51,123,255,.1); color: #1d5cf5; }
+  .dark .nav-item-active { background: rgba(51,123,255,.15); color: #8ec6ff; }
+  .thumb-ok { border-color: rgba(16,185,129,.5) !important; }
+  .thumb-err { border-color: rgba(244,63,94,.5) !important; }
+  .thumb-proc { border-color: rgba(51,123,255,.5) !important; }
+  .bank-chip { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:99px; font-size:11px; font-weight:700; }
+  .edit-btn { transition: all .2s; }
+  .edit-btn:hover { transform: scale(1.15); }
+</style>
+</head>
+
+<body class="bg-slate-50 dark:bg-ink-900 text-slate-800 dark:text-slate-200 antialiased transition-colors duration-300 min-h-screen">
+
+<!-- ═══════ LOGIN ═══════ -->
+<div id="loginView" class="fixed inset-0 z-50 flex items-center justify-center p-4 grid-bg">
+  <div class="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
+    <div class="absolute -top-40 -right-40 w-[34rem] h-[34rem] bg-brand-500/30 dark:bg-brand-600/20 rounded-full blur-3xl"></div>
+    <div class="absolute top-1/3 -left-40 w-[30rem] h-[30rem] bg-emerald-400/20 dark:bg-emerald-500/10 rounded-full blur-3xl"></div>
+  </div>
+
+  <div class="w-full max-w-md">
+    <div class="text-center mb-6">
+      <div class="relative inline-block mb-4">
+        <div class="w-20 h-20 rounded-3xl bg-gradient-to-br from-brand-500 to-brand-700 grid place-items-center text-white shadow-glow">
+          <i class="fa-solid fa-brain text-3xl"></i>
+        </div>
+        <span class="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-emerald-400 border-2 border-white dark:border-ink-900 grid place-items-center">
+          <i class="fa-solid fa-shield-halved text-[10px] text-white"></i>
+        </span>
+      </div>
+      <h1 class="font-extrabold text-2xl mb-1">محلّل التحويلات الذكي</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400">Super AI Reasoning Engine · <span class="font-mono text-brand-500">v0.4.2</span></p>
+    </div>
+
+    <div class="rounded-3xl bg-white dark:bg-ink-800/80 glass border border-slate-200 dark:border-slate-800 shadow-soft p-6 sm:p-8">
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-10 h-10 rounded-xl bg-brand-500/10 text-brand-500 grid place-items-center">
+          <i class="fa-solid fa-user-shield"></i>
+        </div>
+        <div>
+          <h2 class="font-extrabold text-base">دخول المدير</h2>
+          <p class="text-[11px] text-slate-500 dark:text-slate-400">مطلوب للوصول إلى النظام</p>
+        </div>
+      </div>
+
+      <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2"><i class="fa-solid fa-user ml-1"></i> اسم المستخدم</label>
+          <input id="loginUser" type="text" autocomplete="username" required
+            class="w-full px-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm font-bold focus:ring-2 focus:ring-brand-500/40 outline-none transition" placeholder="admin" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2"><i class="fa-solid fa-lock ml-1"></i> كلمة المرور</label>
+          <div class="relative">
+            <input id="loginPwd" type="password" autocomplete="current-password" required
+              class="w-full px-4 py-3 pl-12 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm font-bold focus:ring-2 focus:ring-brand-500/40 outline-none transition" placeholder="••••••••" />
+            <button type="button" onclick="togglePwdVisibility('loginPwd')" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-brand-500 transition">
+              <i class="fa-solid fa-eye"></i>
+            </button>
+          </div>
+        </div>
+        <div class="flex items-center justify-between text-xs">
+          <label class="flex items-center gap-2 cursor-pointer select-none">
+            <input id="rememberMe" type="checkbox" class="w-4 h-4 rounded border-slate-300 dark:border-slate-700 text-brand-500 focus:ring-brand-500/40" />
+            <span class="font-bold text-slate-600 dark:text-slate-300">تذكّرني</span>
+          </label>
+        </div>
+        <div id="loginError" class="hidden rounded-xl bg-rose-500/10 border border-rose-500/30 p-3 text-xs font-bold text-rose-600 dark:text-rose-400">
+          <i class="fa-solid fa-circle-exclamation ml-1"></i> <span id="loginErrorText">بيانات غير صحيحة</span>
+        </div>
+        <button type="submit" class="w-full py-3.5 rounded-2xl bg-gradient-to-l from-brand-600 to-brand-500 hover:from-brand-700 hover:to-brand-600 text-white font-extrabold text-sm shadow-glow transition flex items-center justify-center gap-2">
+          <i class="fa-solid fa-right-to-bracket"></i> تسجيل الدخول
+        </button>
+      </form>
+
+      <div class="mt-6 pt-5 border-t border-slate-200 dark:border-slate-800">
+        <div class="rounded-xl bg-amber-500/10 border border-amber-500/30 p-3 text-[11px] leading-6 text-amber-700 dark:text-amber-400">
+          <p class="font-extrabold mb-1"><i class="fa-solid fa-circle-info ml-1"></i> بيانات الدخول الافتراضية:</p>
+          <p class="font-mono">المستخدم: <b>admin</b> · كلمة المرور: <b>admin123</b></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ APP ═══════ -->
+<div id="appView" class="hidden">
+  <div class="fixed inset-0 -z-10 overflow-hidden pointer-events-none grid-bg opacity-60">
+    <div class="absolute -top-40 -right-40 w-[34rem] h-[34rem] bg-brand-500/20 dark:bg-brand-600/10 rounded-full blur-3xl"></div>
+    <div class="absolute top-1/3 -left-40 w-[30rem] h-[30rem] bg-emerald-400/15 dark:bg-emerald-500/5 rounded-full blur-3xl"></div>
+  </div>
+
+  <header class="sticky top-0 z-40 glass bg-white/70 dark:bg-ink-900/80 border-b border-slate-200/70 dark:border-slate-800/70">
+    <div class="max-w-[1600px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="relative">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 grid place-items-center text-white shadow-glow">
+            <i class="fa-solid fa-brain text-lg"></i>
+          </div>
+          <span class="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-white dark:border-ink-900"></span>
+        </div>
+        <div class="leading-tight">
+          <h1 class="font-extrabold text-[15px] sm:text-base tracking-tight flex items-center gap-2">
+            محلّل التحويلات <span class="text-brand-500 dark:text-brand-400">Super AI</span>
+            <span class="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-brand-500/10 text-brand-600 dark:text-brand-400">v0.4.2</span>
+          </h1>
+          <p class="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block">20 صورة · البنوك السودانية · تعديل يدوي للأسماء</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <span class="hidden md:inline-flex items-center gap-2 text-[11px] font-semibold px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          Batch Engine · 20 Max
+        </span>
+        <button onclick="openSettings()" class="w-10 h-10 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition grid place-items-center" title="الإعدادات">
+          <i class="fa-solid fa-gear text-slate-600 dark:text-slate-400"></i>
+        </button>
+        <button onclick="toggleTheme()" class="w-10 h-10 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition grid place-items-center" title="المظهر">
+          <i id="themeIcon" class="fa-solid fa-moon text-slate-600 dark:text-amber-300"></i>
+        </button>
+        <button onclick="clearHistory()" class="w-10 h-10 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition grid place-items-center" title="مسح السجل">
+          <i class="fa-regular fa-trash-can text-slate-600 dark:text-slate-400"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+
+    <!-- KPIs -->
+    <section class="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+      <div class="rounded-2xl p-4 bg-white dark:bg-ink-800/60 border border-slate-200 dark:border-slate-800 shadow-soft">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400">عمليات محلّلة</span>
+          <i class="fa-solid fa-wave-square text-brand-500"></i>
+        </div>
+        <p id="statCount" class="text-2xl font-extrabold">0</p>
+      </div>
+      <div class="rounded-2xl p-4 bg-white dark:bg-ink-800/60 border border-slate-200 dark:border-slate-800 shadow-soft">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400">إجمالي المبالغ</span>
+          <i class="fa-solid fa-sack-dollar text-emerald-500"></i>
+        </div>
+        <p id="statTotal" class="text-lg font-extrabold truncate">0</p>
+      </div>
+      <div class="rounded-2xl p-4 bg-white dark:bg-ink-800/60 border border-slate-200 dark:border-slate-800 shadow-soft">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400">متوسط الثقة</span>
+          <i class="fa-solid fa-bullseye text-amber-500"></i>
+        </div>
+        <p id="statAccuracy" class="text-2xl font-extrabold">—</p>
+      </div>
+      <div class="rounded-2xl p-4 bg-white dark:bg-ink-800/60 border border-slate-200 dark:border-slate-800 shadow-soft">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400">ناجحة</span>
+          <i class="fa-solid fa-circle-check text-sky-500"></i>
+        </div>
+        <p id="statSuccess" class="text-2xl font-extrabold">0</p>
+      </div>
+      <div class="rounded-2xl p-4 bg-white dark:bg-ink-800/60 border border-slate-200 dark:border-slate-800 shadow-soft col-span-2 lg:col-span-1">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400">جهات اتصال</span>
+          <i class="fa-solid fa-address-book text-violet-500"></i>
+        </div>
+        <p id="statContacts" class="text-2xl font-extrabold">0</p>
+      </div>
+    </section>
+
+    <!-- Financial Summary -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="rounded-3xl border border-slate-200 dark:border-slate-800 shadow-soft bg-white dark:bg-ink-800/60 p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-extrabold text-sm flex items-center gap-2">
+            <i class="fa-solid fa-calendar-days text-brand-500"></i> إجمالي التحويلات — الشهر الحالي
+          </h3>
+          <span id="monthLabel" class="text-[10px] font-bold px-2 py-1 rounded-md bg-brand-500/10 text-brand-600 dark:text-brand-400">—</span>
+        </div>
+        <p id="monthTotals" class="text-xl font-extrabold text-brand-600 dark:text-brand-400 leading-tight">0</p>
+        <p id="monthMeta" class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">لا توجد عمليات هذا الشهر</p>
+      </div>
+
+      <div class="rounded-3xl border border-slate-200 dark:border-slate-800 shadow-soft bg-white dark:bg-ink-800/60 p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-extrabold text-sm flex items-center gap-2">
+            <i class="fa-solid fa-calendar text-emerald-500"></i> إجمالي التحويلات — السنة الحالية
+          </h3>
+          <span id="yearLabel" class="text-[10px] font-bold px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">—</span>
+        </div>
+        <p id="yearTotals" class="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 leading-tight">0</p>
+        <p id="yearMeta" class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">لا توجد عمليات هذه السنة</p>
+      </div>
+    </section>
+
+    <!-- Per-Account Volume -->
+    <section class="rounded-3xl border border-slate-200 dark:border-slate-800 shadow-soft bg-white dark:bg-ink-800/60 overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between flex-wrap gap-3">
+        <h3 class="font-extrabold text-sm flex items-center gap-2">
+          <i class="fa-solid fa-arrow-right-arrow-left text-violet-500"></i>
+          حجم التحويلات لكل حساب
+          <span class="text-[10px] font-normal text-slate-400">(الاسم + رقم الحساب)</span>
+        </h3>
+        <div class="flex items-center gap-2">
+          <input id="accountSearch" oninput="renderAccountTotals()" placeholder="🔍 بحث بالحساب أو الاسم..." class="text-xs px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-brand-500/40 w-56">
+          <span id="accountCount" class="text-[11px] font-bold px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">0 حساب</span>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[820px]">
+          <thead class="bg-slate-50 dark:bg-slate-950/60 text-[11px] uppercase text-slate-500 dark:text-slate-400">
+            <tr>
+              <th class="text-right font-bold px-5 py-3">الاسم</th>
+              <th class="text-right font-bold px-5 py-3">رقم الحساب</th>
+              <th class="text-right font-bold px-5 py-3">صادر</th>
+              <th class="text-right font-bold px-5 py-3">وارد</th>
+              <th class="text-right font-bold px-5 py-3">العمليات</th>
+              <th class="text-right font-bold px-5 py-3"></th>
+            </tr>
+          </thead>
+          <tbody id="accountBody" class="divide-y divide-slate-100 dark:divide-slate-800"></tbody>
+        </table>
+        <div id="accountEmpty" class="py-10 text-center text-sm text-slate-400">
+          <i class="fa-solid fa-users-viewfinder text-3xl mb-3 block opacity-50"></i>
+          لا توجد بيانات حسابات بعد
+        </div>
+      </div>
+    </section>
+
+    <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+      <!-- Input Panel -->
+      <section class="xl:col-span-4 space-y-5">
+        <div class="flex p-1 rounded-2xl bg-slate-100 dark:bg-ink-800/70 border border-slate-200 dark:border-slate-800">
+          <button data-tab="image" class="tab-btn flex-1 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 bg-white dark:bg-slate-800 shadow-sm text-brand-600 dark:text-brand-400">
+            <i class="fa-regular fa-image"></i> صور (20)
+          </button>
+          <button data-tab="text" class="tab-btn flex-1 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 text-slate-500 dark:text-slate-400">
+            <i class="fa-solid fa-align-right"></i> نص
+          </button>
+        </div>
+
+        <div id="panel-image" class="rounded-3xl bg-white dark:bg-ink-800/60 border border-slate-200 dark:border-slate-800 shadow-soft overflow-hidden">
+          <div id="dropzone" class="m-4 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 p-6 text-center cursor-pointer transition-all duration-300 hover:border-brand-400 hover:bg-brand-50/50 dark:hover:bg-brand-500/5">
+            <div class="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 grid place-items-center text-white mb-3 pulse-ring">
+              <i class="fa-solid fa-cloud-arrow-up text-xl"></i>
+            </div>
+            <p class="font-bold text-slate-700 dark:text-slate-200 mb-1">اسحب صور الإشعارات هنا</p>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 mb-3">
+              <b class="text-brand-500">20 صورة كحد أقصى</b> · <b class="text-brand-500">5MB لكل صورة</b><br>
+              JPG · PNG · WEBP · GIF · BMP · TIFF
+            </p>
+            <span class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold transition">
+              <i class="fa-solid fa-folder-open"></i> اختيار الصور
+            </span>
+            <input id="fileInput" type="file" accept="image/*" multiple class="hidden" />
+          </div>
+
+          <div class="mx-4 mb-3 rounded-2xl border border-brand-500/20 bg-brand-500/5 p-3">
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <label class="text-[11px] font-bold text-brand-700 dark:text-brand-300 flex items-center gap-1.5">
+                <i class="fa-solid fa-building-columns"></i> اختيار بنك موحّد لجميع الصور
+              </label>
+              <span class="text-[10px] font-bold text-slate-500">مطلوب للتحليل</span>
+            </div>
+            <div class="flex gap-2">
+              <select id="globalBankSelect" class="flex-1 text-xs font-bold px-3 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 outline-none"></select>
+              <button onclick="applyGlobalBank()" class="px-3 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-extrabold transition">
+                <i class="fa-solid fa-check"></i> تطبيق
+              </button>
+            </div>
+          </div>
+
+          <div id="imageQueueWrap" class="hidden px-4 pb-3">
+            <div class="flex items-center justify-between mb-2">
+              <p class="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                <i class="fa-regular fa-images ml-1"></i>
+                الصور: <span id="queueCount" class="text-brand-500">0</span> / 20
+              </p>
+              <button onclick="clearQueue()" class="text-[10px] font-bold text-rose-500 hover:text-rose-700 transition">
+                <i class="fa-solid fa-xmark"></i> مسح الكل
+              </button>
+            </div>
+            <div id="imageQueue" class="space-y-2 max-h-[400px] overflow-auto pl-1"></div>
+          </div>
+
+          <div id="progressWrap" class="hidden px-4 pb-3">
+            <div class="flex items-center justify-between mb-2 text-xs font-bold">
+              <span id="progressLabel" class="text-slate-600 dark:text-slate-300">جارٍ التحليل…</span>
+              <span id="progressPct" class="text-brand-600 dark:text-brand-400">0%</span>
+            </div>
+            <div class="h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+              <div id="progressBar" class="h-full w-0 rounded-full bg-gradient-to-l from-brand-400 to-brand-600 transition-all duration-300"></div>
+            </div>
+            <p id="batchCounter" class="text-[11px] text-slate-500 dark:text-slate-400 mt-2 text-center"></p>
+          </div>
+
+          <div class="px-4 pb-4 flex gap-2">
+            <button id="analyzeBtn" onclick="startBatchAnalysis()" disabled
+              class="flex-1 py-3.5 rounded-2xl bg-gradient-to-l from-brand-600 to-brand-500 hover:from-brand-700 hover:to-brand-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-extrabold text-sm shadow-glow transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-wand-magic-sparkles"></i> تحليل الدفعة
+            </button>
+            <button id="clearBtn" onclick="clearQueue()" disabled
+              class="px-4 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 text-sm font-bold transition">
+              <i class="fa-regular fa-trash-can text-slate-500"></i>
+            </button>
+          </div>
+        </div>
+
+        <div id="panel-text" class="hidden rounded-3xl bg-white dark:bg-ink-800/60 border border-slate-200 dark:border-slate-800 shadow-soft p-4">
+          <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">
+            <i class="fa-solid fa-building-columns ml-1"></i> اختر البنك أولاً
+          </label>
+          <select id="textBankSelect" class="w-full mb-3 text-xs font-bold px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 outline-none"></select>
+          <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">
+            <i class="fa-solid fa-keyboard ml-1"></i> الصق نص الإشعار
+          </label>
+          <textarea id="textInput" rows="9" placeholder="الصق هنا…" class="w-full rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-4 text-sm leading-7 resize-none outline-none transition"></textarea>
+          <div class="flex gap-3 mt-3">
+            <button onclick="analyzeText()" class="flex-1 py-3 rounded-2xl bg-gradient-to-l from-brand-600 to-brand-500 hover:from-brand-700 hover:to-brand-600 text-white font-extrabold text-sm shadow-glow transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-bolt"></i> تحليل عميق
+            </button>
+            <button onclick="loadSample()" class="px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-sm font-bold transition">
+              <i class="fa-solid fa-flask"></i> نموذج بنكك
+            </button>
+          </div>
+        </div>
+
+        <div class="rounded-3xl border border-slate-200 dark:border-slate-800 shadow-soft bg-white dark:bg-ink-800/60 overflow-hidden">
+          <div class="px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+            <h3 class="font-extrabold text-xs flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-brand-500 animate-pulse"></span>
+              محرّك الاستنتاج
+            </h3>
+            <span id="engineStatus" class="text-[10px] font-bold px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500">خامل</span>
+          </div>
+          <div id="reasoningStream" class="p-4 space-y-2 max-h-[280px] overflow-auto text-[12px] leading-6 font-mono">
+            <p class="text-slate-400 dark:text-slate-500 text-xs">◆ بانتظار المدخلات…</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Results -->
+      <section class="xl:col-span-8 space-y-5">
+        <div id="emptyState" class="rounded-3xl bg-white dark:bg-ink-800/60 border border-slate-200 dark:border-slate-800 shadow-soft p-10 sm:p-14 text-center scanline">
+          <div class="w-20 h-20 mx-auto rounded-3xl bg-gradient-to-br from-brand-500/10 to-fuchsia-500/10 border border-brand-500/20 grid place-items-center mb-5">
+            <i class="fa-solid fa-images text-3xl text-brand-500 spin-slow"></i>
+          </div>
+          <h3 class="font-extrabold text-lg mb-2">دفعات تحليل الصور جاهزة</h3>
+          <p class="text-sm text-slate-500 dark:text-slate-400 max-w-2xl mx-auto leading-7 mb-5">
+            ارفع حتى <b class="text-brand-500">20 صورة</b>، حدد البنك لكل صورة، وسيقوم المحرّك باستخراج:
+            <br>اسم المستلم + رقم حسابه معاً · رقم حساب المرسل بدقة · التعليق ورقم الهاتف (يتجاهل N/A) · وبناء سجل جهات الاتصال.
+          </p>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 max-w-2xl mx-auto text-[11px]">
+            <div class="rounded-xl border border-slate-200 dark:border-slate-800 px-3 py-2 font-bold text-slate-500"><i class="fa-solid fa-images text-brand-500 ml-1"></i> 20 صورة</div>
+            <div class="rounded-xl border border-slate-200 dark:border-slate-800 px-3 py-2 font-bold text-slate-500"><i class="fa-solid fa-address-book text-violet-500 ml-1"></i> جهات اتصال</div>
+            <div class="rounded-xl border border-slate-200 dark:border-slate-800 px-3 py-2 font-bold text-slate-500"><i class="fa-solid fa-pen text-emerald-500 ml-1"></i> تعديل يدوي</div>
+            <div class="rounded-xl border border-slate-200 dark:border-slate-800 px-3 py-2 font-bold text-slate-500"><i class="fa-solid fa-ban text-rose-500 ml-1"></i> يتجاهل N/A</div>
+          </div>
+        </div>
+
+        <div id="batchResultsWrap" class="hidden space-y-5">
+          <div class="rounded-3xl border border-slate-200 dark:border-slate-800 shadow-soft bg-gradient-to-l from-brand-600 to-brand-500 text-white p-6 relative overflow-hidden">
+            <div class="absolute inset-0 opacity-10 grid-bg"></div>
+            <div class="relative">
+              <div class="flex items-center justify-between flex-wrap gap-3 mb-4">
+                <div class="flex items-center gap-3">
+                  <div class="w-12 h-12 rounded-2xl bg-white/20 grid place-items-center backdrop-blur">
+                    <i class="fa-solid fa-layer-group text-xl"></i>
+                  </div>
+                  <div>
+                    <p class="text-[11px] opacity-80 font-semibold">ملخص الدفعة</p>
+                    <p id="batchTitle" class="text-2xl font-extrabold">—</p>
+                  </div>
+                </div>
+                <button onclick="resetBatchResults()" class="px-3 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-xs font-extrabold backdrop-blur transition flex items-center gap-2">
+                  <i class="fa-solid fa-rotate"></i> دفعة جديدة
+                </button>
+              </div>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div class="rounded-2xl bg-white/10 backdrop-blur p-3">
+                  <p class="text-[10px] opacity-80 mb-1">إجمالي الصور</p>
+                  <p id="batchTotal" class="text-xl font-extrabold">0</p>
+                </div>
+                <div class="rounded-2xl bg-white/10 backdrop-blur p-3">
+                  <p class="text-[10px] opacity-80 mb-1">نجح التحليل</p>
+                  <p id="batchSuccess" class="text-xl font-extrabold">0</p>
+                </div>
+                <div class="rounded-2xl bg-white/10 backdrop-blur p-3">
+                  <p class="text-[10px] opacity-80 mb-1">المبلغ الإجمالي</p>
+                  <p id="batchAmount" class="text-xl font-extrabold truncate">—</p>
+                </div>
+                <div class="rounded-2xl bg-white/10 backdrop-blur p-3">
+                  <p class="text-[10px] opacity-80 mb-1">متوسط الثقة</p>
+                  <p id="batchConf" class="text-xl font-extrabold">—</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="rounded-3xl border border-slate-200 dark:border-slate-800 shadow-soft bg-white dark:bg-ink-800/60 overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <h3 class="font-extrabold text-sm flex items-center gap-2">
+                <i class="fa-solid fa-list-check text-brand-500"></i> المعاملات المُحلَّلة
+              </h3>
+              <div class="flex items-center gap-1 text-[10px] font-bold">
+                <button onclick="filterTx('all')" data-filter="all" class="tx-filter px-2.5 py-1 rounded-md bg-brand-500 text-white transition">الكل</button>
+                <button onclick="filterTx('ok')" data-filter="ok" class="tx-filter px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 transition">سليمة</button>
+                <button onclick="filterTx('risk')" data-filter="risk" class="tx-filter px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 transition">مخاطر</button>
+              </div>
+            </div>
+            <div id="txCards" class="p-4 grid grid-cols-1 lg:grid-cols-2 gap-3"></div>
+          </div>
+
+          <div id="txDetailWrap" class="hidden space-y-5"></div>
+
+          <div class="rounded-3xl border border-slate-200 dark:border-slate-800 shadow-soft bg-white dark:bg-ink-800/60 p-5">
+            <h4 class="font-extrabold text-sm mb-3 flex items-center gap-2">
+              <i class="fa-solid fa-share-nodes text-brand-500"></i> تصدير الدفعة
+            </h4>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <button onclick="exportBatchJSON()" class="py-3 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-code text-amber-500"></i> JSON
+              </button>
+              <button onclick="exportBatchCSV()" class="py-3 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-file-csv text-emerald-500"></i> CSV
+              </button>
+              <button onclick="copyBatchJSON()" class="py-3 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold transition flex items-center justify-center gap-2">
+                <i class="fa-regular fa-copy text-brand-500"></i> نسخ
+              </button>
+              <button onclick="window.print()" class="py-3 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-print text-slate-500"></i> طباعة
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- History -->
+    <section class="rounded-3xl border border-slate-200 dark:border-slate-800 shadow-soft bg-white dark:bg-ink-800/60 overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between flex-wrap gap-3">
+        <h3 class="font-extrabold text-sm flex items-center gap-2">
+          <i class="fa-solid fa-clock-rotate-left text-brand-500"></i> سجل التحليلات
+        </h3>
+        <div class="flex items-center gap-2">
+          <input id="historySearch" oninput="renderHistory()" placeholder="🔍 بحث..." class="text-xs px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none w-40">
+          <span id="historyCount" class="text-[11px] font-bold px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">0 عنصر</span>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[1100px]">
+          <thead class="bg-slate-50 dark:bg-slate-950/60 text-[11px] uppercase text-slate-500 dark:text-slate-400">
+            <tr>
+              <th class="text-right font-bold px-5 py-3">#</th>
+              <th class="text-right font-bold px-5 py-3">البنك</th>
+              <th class="text-right font-bold px-5 py-3">المبلغ</th>
+              <th class="text-right font-bold px-5 py-3">من حساب</th>
+              <th class="text-right font-bold px-5 py-3">المرسل</th>
+              <th class="text-right font-bold px-5 py-3">إلى حساب</th>
+              <th class="text-right font-bold px-5 py-3">المستلم</th>
+              <th class="text-right font-bold px-5 py-3">رقم العملية</th>
+              <th class="text-right font-bold px-5 py-3">التاريخ</th>
+              <th class="text-right font-bold px-5 py-3">المخاطر</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody" class="divide-y divide-slate-100 dark:divide-slate-800"></tbody>
+        </table>
+        <div id="historyEmpty" class="py-12 text-center text-sm text-slate-400">
+          <i class="fa-regular fa-folder-open text-3xl mb-3 block opacity-50"></i>
+          السجل فارغ
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="max-w-[1600px] mx-auto px-6 py-8 text-center text-[11px] text-slate-400 dark:text-slate-500">
+    Super AI Reasoning Engine v0.4.2 · 20 صور · البنوك السودانية · تعديل يدوي للأسماء
+  </footer>
+</div>
+
+<!-- ═══ SETTINGS ═══ -->
+<div id="settingsView" class="hidden fixed inset-0 z-40 bg-slate-50 dark:bg-ink-900 overflow-auto">
+  <div class="fixed inset-0 -z-10 overflow-hidden pointer-events-none grid-bg opacity-40"></div>
+  <header class="sticky top-0 z-10 glass bg-white/80 dark:bg-ink-900/80 border-b border-slate-200/70 dark:border-slate-800/70">
+    <div class="max-w-[1400px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <button onclick="closeSettings()" class="w-10 h-10 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition grid place-items-center">
+          <i class="fa-solid fa-arrow-right text-slate-600 dark:text-slate-400"></i>
+        </button>
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 grid place-items-center text-white">
+          <i class="fa-solid fa-gear text-sm"></i>
+        </div>
+        <div class="leading-tight">
+          <h2 class="font-extrabold text-sm">الإعدادات</h2>
+          <p class="text-[10px] text-slate-500 dark:text-slate-400">v0.4.2</p>
+        </div>
+      </div>
+      <button onclick="resetAllSettings()" class="text-xs font-bold px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition flex items-center gap-2">
+        <i class="fa-solid fa-rotate-left"></i> استعادة الافتراضي
+      </button>
+    </div>
+  </header>
+
+  <div class="max-w-[1400px] mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <aside class="lg:col-span-3">
+      <div class="lg:sticky lg:top-24 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-soft bg-white dark:bg-ink-800/60 overflow-hidden">
+        <nav class="p-2">
+          <button onclick="switchSettingsSection('contacts')" data-settings-nav="contacts" class="settings-nav w-full text-right px-4 py-3 rounded-xl text-xs font-bold transition flex items-center gap-3 nav-item-active">
+            <i class="fa-solid fa-address-book w-4"></i> جهات الاتصال
+          </button>
+          <button onclick="switchSettingsSection('appearance')" data-settings-nav="appearance" class="settings-nav w-full text-right px-4 py-3 rounded-xl text-xs font-bold transition flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/60">
+            <i class="fa-solid fa-palette w-4"></i> المظهر والعرض
+          </button>
+          <button onclick="switchSettingsSection('analysis')" data-settings-nav="analysis" class="settings-nav w-full text-right px-4 py-3 rounded-xl text-xs font-bold transition flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/60">
+            <i class="fa-solid fa-brain w-4"></i> التحليل الذكي
+          </button>
+          <button onclick="switchSettingsSection('banks')" data-settings-nav="banks" class="settings-nav w-full text-right px-4 py-3 rounded-xl text-xs font-bold transition flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/60">
+            <i class="fa-solid fa-building-columns w-4"></i> البنوك السودانية
+          </button>
+          <button onclick="switchSettingsSection('data')" data-settings-nav="data" class="settings-nav w-full text-right px-4 py-3 rounded-xl text-xs font-bold transition flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/60">
+            <i class="fa-solid fa-database w-4"></i> البيانات والنسخ
+          </button>
+          <button onclick="switchSettingsSection('audit')" data-settings-nav="audit" class="settings-nav w-full text-right px-4 py-3 rounded-xl text-xs font-bold transition flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/60">
+            <i class="fa-solid fa-list-check w-4"></i> سجل الأحداث
+          </button>
+          <button onclick="switchSettingsSection('about')" data-settings-nav="about" class="settings-nav w-full text-right px-4 py-3 rounded-xl text-xs font-bold transition flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/60">
+            <i class="fa-solid fa-circle-info w-4"></i> حول النظام
+          </button>
+        </nav>
+      </div>
+    </aside>
+
+    <main class="lg:col-span-9 space-y-5">
+      <!-- Contacts -->
+      <section data-settings-section="contacts" class="space-y-5">
+        <div class="rounded-3xl border border-slate-200 dark:border-slate-800 shadow-soft bg-white dark:bg-ink-800/60 p-6">
+          <div class="flex items-start justify-between gap-4 mb-5">
+            <div>
+              <h3 class="font-extrabold text-base mb-1 flex items-center gap-2"><i class="fa-solid fa-address-book text-violet-500"></i> سجل جهات الاتصال الذكي</h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400">كل شخص = (الاسم + رقم الحساب معاً)</p>
+            </div>
+            <button onclick="clearContacts()" class="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition shrink-0">
+              <i class="fa-solid fa-trash-can ml-1"></i> مسح
+            </button>
+          </div>
+          <div class="rounded-2xl bg-violet-500/5 border border-violet-500/20 p-4 mb-5 text-[11px] leading-6 text-slate-600 dark:text-slate-300">
+            <p class="font-extrabold mb-1 text-violet-700 dark:text-violet-300"><i class="fa-solid fa-lightbulb ml-1"></i> آلية العمل:</p>
+            كل إشعار يحتوي على <b>«إسم المرسل إليه» + «الى حساب»</b> → يُسجَّلان معاً. وعند رؤية <b>«من حساب»</b> فقط، يتعرّف النظام على المرسل تلقائياً عبر رقم الحساب. يمكنك دائماً <b>تعديل الاسم يدوياً</b> من تفاصيل أي معاملة (زر ✏️).
+          </div>
+          <div class="mb-3 flex items-center gap-2">
+            <input id="contactSearch" oninput="renderContactsList()" placeholder="🔍 بحث..." class="flex-1 text-xs px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none">
+            <span id="contactCount" class="text-[11px] font-bold px-3 py-1 rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-400">0 جهة</span>
+          </div>
+          <div id="contactsList" class="space-y-2 max-h-[500px] overflow-auto"></div>
+        </div>
+      </section>
+
+      <!-- Appearance -->
+      <section data-settings-section="appearance" class="hidden space-y-5">
+        <div class="rounded-3xl border border-slate-200 dark:border-slate-800 shadow-soft bg-white dark:bg-ink-800/60 p-6">
+          <h3 class="font-extrabold text-base mb-1 flex items-center gap-2"><i class="fa-solid fa-palette text-fuchsia-500"></i> المظهر والعرض</h3>
+          <div class="space-y-5">
+            <div class="flex items-center justify-between gap-4 py-3 border-b border-slate-100 dark:border-slate-800">
+              <div><p class="font-extrabold text-sm">الوضع الليلي</p><p class="text-[11px] text-slate-500">تفعيل المظهر الداكن</p></div>
+              <label class="switch"><input id="setDarkMode" type="checkbox" /><span class="slider"></span></label>
+            </div>
+            <div class="py-3 border-b border-slate-100 dark:border-slate-800">
+              <p class="font-extrabold text-sm mb-3">حجم الخط</p>
+              <div class="flex gap-2">
+                <button onclick="setFontSize('sm')" data-font-size="sm" class="font-size-btn flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold transition">صغير</button>
+                <button onclick="setFontSize('normal')" data-font-size="normal" class="font-size-btn flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold transition">عادي</button>
+                <button onclick="setFontSize('lg')" data-font-size="lg" class="font-size-btn flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold transition">كبير</button>
+              </div>
+            </div>
+            <div class="flex items-center justify-between gap-4 py-3">
+              <div><p class="font-extrabold text-sm">الحركات</p><p class="text-[11px] text-slate-500">تعطيلها يوفّر الأداء</p></div>
+              <label class="switch"><input id="setAnimations" type="checkbox" /><span class="slider"></span></label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Analysis -->
+      <section data-settings-section="analysis" class="hidden space-y-5">
+        <div class="rounded-3xl border border-slate-200 dark:border-slate-800 shadow-soft bg-white dark:bg-ink-800/60 p-6">
+          <h3 class="font-extrabold text-base mb-1 flex items-center gap-2"><i class="fa-solid fa-brain text-brand-500"></i> التحليل الذكي</h3>
+          <div class="space-y-5">
+            <div class="flex items-center justify-between gap-4 py-3 border-b border-slate-100 dark:border-slate-800">
+              <div><p class="font-extrabold text-sm">حفظ تلقائي</p><p class="text-[11px] text-slate-500">حفظ كل تحليل ناجح</p></div>
+              <label class="switch"><input id="setAutoSave" type="checkbox" /><span class="slider"></span></label>
+            </div>
+            <div class="flex items-center justify-between gap-4 py-3 border-b border-slate-100 dark:border-slate-800">
+              <div><p class="font-extrabold text-sm">عرض محرّك الاستنتاج</p><p class="text-[11px] text-slate-500">إظهار مراحل التفكير</p></div>
+              <label class="switch"><input id="setShowReasoning" type="checkbox" /><span class="slider"></span></label>
+            </div>
+            <div class="flex items-center justify-between gap-4 py-3">
+              <div><p class="font-extrabold text-sm">ربط جهات الاتصال تلقائياً</p><p class="text-[11px] text-slate-500">استنتاج اسم المرسل من حسابه</p></div>
+              <label class="switch"><input id="setAutoLink" type="checkbox" /><span class="slider"></span></label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Banks -->
+      <section data-settings-section="banks" class="hidden space-y-5">
+        <div class="rounded-3xl border border-slate-200 dark:border-slate-800 shadow-soft bg-white dark:bg-ink-800/60 p-6">
+          <h3 class="font-extrabold text-base mb-1 flex items-center gap-2"><i class="fa-solid fa-building-columns text-brand-500"></i> البنوك السودانية</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mb-5">البنوك الستة الرسمية</p>
+          <div class="rounded-2xl bg-brand-500/5 border border-brand-500/20 p-4 mb-5">
+            <div id="sudanBanksList" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
+          </div>
+
+          <div class="mb-5 rounded-2xl border border-brand-500/30 bg-brand-500/5 p-4">
+            <p class="font-extrabold text-xs text-brand-700 dark:text-brand-300 mb-3 flex items-center gap-2">
+              <i class="fa-solid fa-plus-circle"></i> إضافة بنك مخصص
+            </p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+              <div>
+                <label class="block text-[10px] font-bold text-slate-500 mb-1"><i class="fa-solid fa-building-columns ml-1"></i> اسم البنك</label>
+                <input id="newBankInput" type="text" placeholder="مثال: بنك البركة السوداني"
+                  class="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm outline-none focus:ring-2 focus:ring-brand-500/40"
+                  onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomBank();}" />
+              </div>
+              <div>
+                <label class="block text-[10px] font-bold text-slate-500 mb-1"><i class="fa-solid fa-mobile-screen ml-1"></i> اسم التطبيق</label>
+                <input id="newBankAppInput" type="text" placeholder="مثال: بركة موبايل"
+                  class="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm outline-none focus:ring-2 focus:ring-brand-500/40"
+                  onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomBank();}" />
+              </div>
+            </div>
+            <button onclick="addCustomBank()" class="w-full px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-extrabold transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-plus"></i> إضافة البنك
+            </button>
+          </div>
+
+          <div>
+            <p class="text-xs font-bold text-slate-500 mb-2">المخصصة (<span id="customBankCount">0</span>)</p>
+            <div id="customBanksList" class="flex flex-wrap gap-2"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Data -->
+      <section data-settings-section="data" class="hidden space-y-5">
+        <div class="rounded-3xl border border-slate-200 dark:border-slate-800 shadow-soft bg-white dark:bg-ink-800/60 p-6">
+          <h3 class="font-extrabold text-base mb-1 flex items-center gap-2"><i class="fa-solid fa-database text-emerald-500"></i> البيانات</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+            <button onclick="exportAllData()" class="py-3 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 text-xs font-bold transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-download text-emerald-500"></i> تصدير كامل
+            </button>
+            <label class="py-3 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer">
+              <i class="fa-solid fa-upload text-brand-500"></i> استيراد نسخة
+              <input type="file" accept=".json" class="hidden" onchange="importAllData(event)" />
+            </label>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+            <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3 text-center">
+              <p id="dataStatsHistory" class="text-lg font-extrabold">0</p>
+              <p class="text-[10px] text-slate-500 font-bold">معاملة</p>
+            </div>
+            <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3 text-center">
+              <p id="dataStatsContacts" class="text-lg font-extrabold">0</p>
+              <p class="text-[10px] text-slate-500 font-bold">جهة</p>
+            </div>
+            <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3 text-center">
+              <p id="dataStatsAudit" class="text-lg font-extrabold">0</p>
+              <p class="text-[10px] text-slate-500 font-bold">حدث</p>
+            </div>
+            <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3 text-center">
+              <p id="dataStatsSize" class="text-lg font-extrabold">—</p>
+              <p class="text-[10px] text-slate-500 font-bold">حجم</p>
+            </div>
+          </div>
+          <div class="rounded-2xl border border-rose-500/30 bg-rose-500/5 p-4">
+            <p class="font-extrabold text-sm text-rose-600 dark:text-rose-400 mb-2"><i class="fa-solid fa-triangle-exclamation ml-1"></i> منطقة الخطر</p>
+            <div class="flex flex-wrap gap-2">
+              <button onclick="clearHistory()" class="px-3 py-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-bold transition">مسح السجل</button>
+              <button onclick="clearContacts()" class="px-3 py-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-bold transition">مسح جهات الاتصال</button>
+              <button onclick="factoryReset()" class="px-3 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition">ضبط المصنع</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Audit -->
+      <section data-settings-section="audit" class="hidden space-y-5">
+        <div class="rounded-3xl border border-slate-200 dark:border-slate-800 shadow-soft bg-white dark:bg-ink-800/60 overflow-hidden">
+          <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+            <h3 class="font-extrabold text-base flex items-center gap-2"><i class="fa-solid fa-list-check text-brand-500"></i> سجل الأحداث</h3>
+            <button onclick="clearAuditLog()" class="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-rose-50 transition">
+              <i class="fa-solid fa-trash-can ml-1"></i> مسح
+            </button>
+          </div>
+          <div id="auditList" class="divide-y divide-slate-100 dark:divide-slate-800 max-h-[600px] overflow-auto"></div>
+        </div>
+      </section>
+
+      <!-- About -->
+      <section data-settings-section="about" class="hidden space-y-5">
+        <div class="rounded-3xl border border-slate-200 dark:border-slate-800 shadow-soft bg-gradient-to-br from-brand-600 to-brand-700 text-white p-8 text-center relative overflow-hidden">
+          <div class="absolute inset-0 opacity-10 grid-bg"></div>
+          <div class="relative">
+            <div class="w-20 h-20 mx-auto rounded-3xl bg-white/20 backdrop-blur grid place-items-center mb-4">
+              <i class="fa-solid fa-brain text-4xl"></i>
+            </div>
+            <h3 class="font-extrabold text-2xl mb-1">Super AI Reasoning Engine</h3>
+            <p class="text-sm opacity-90 mb-2">Sudanese Banks · Contact Registry · Manual Edit</p>
+            <span class="inline-block px-3 py-1 rounded-full bg-white/20 backdrop-blur text-xs font-mono font-bold">v0.4.2</span>
+          </div>
+        </div>
+        <div class="rounded-3xl border border-slate-200 dark:border-slate-800 shadow-soft bg-white dark:bg-ink-800/60 p-6">
+          <h4 class="font-extrabold text-sm mb-4 flex items-center gap-2"><i class="fa-solid fa-clock-rotate-left text-brand-500"></i> سجل التغييرات</h4>
+          <div class="space-y-3">
+            <div class="border-r-2 border-brand-500 pr-4 py-1">
+              <p class="font-extrabold text-sm flex items-center gap-2">v0.4.2 <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-brand-500/10 text-brand-600">الحالي</span></p>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-6">
+                • <b>إضافة بنك مخصص مع اسم التطبيق</b> (حقلان منفصلان)<br>
+                • <b>إصلاح استخراج اسم المستلم</b> من «إسم المرسل إليه» وكل صيغه<br>
+                • <b>دعم كلمات «من» و «إلى» المختصرة</b> في إشعارات بنكك (صورة التفاصيل)<br>
+                • <b>تجاهل تلقائي</b> لتكرار «اليه» في اسم المرسل<br>
+                • <b>دعم حالة «نجاح / نجحت»</b> كمكتملة<br>
+                • <b>حماية حقل الاسم من ابتلاع السطر التالي</b> (Regex محسّن)
+              </p>
+            </div>
+            <div class="border-r-2 border-slate-200 dark:border-slate-700 pr-4 py-1">
+              <p class="font-extrabold text-sm">v0.4.1</p>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">• تعديل يدوي لاسم المرسل · استخراج محسّن لحسابات بنكك · رقم الموبايل · التعليق</p>
+            </div>
+            <div class="border-r-2 border-slate-200 dark:border-slate-700 pr-4 py-1">
+              <p class="font-extrabold text-sm">v0.4.0</p>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">• سجل جهات اتصال ذكي · إجماليات الشهر/السنة · حجم التحويلات لكل حساب · بنوك سودانية فقط</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="fixed bottom-6 left-6 z-[60] translate-y-24 opacity-0 transition-all duration-300">
+  <div class="flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-2xl text-sm font-bold">
+    <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400"></i>
+    <span id="toastMsg">تم</span>
+  </div>
+</div>
+
+<!-- Modal -->
+<div id="modal" class="hidden fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+  <div class="rounded-3xl bg-white dark:bg-ink-800 border border-slate-200 dark:border-slate-800 shadow-2xl max-w-md w-full p-6 pop-in">
+    <div class="flex items-start gap-3 mb-4">
+      <div id="modalIcon" class="w-12 h-12 rounded-2xl bg-brand-500/10 text-brand-500 grid place-items-center shrink-0">
+        <i class="fa-solid fa-circle-question text-xl"></i>
+      </div>
+      <div class="flex-1">
+        <h3 id="modalTitle" class="font-extrabold text-base">تأكيد</h3>
+        <p id="modalMessage" class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-6 whitespace-pre-line"></p>
+      </div>
+    </div>
+    <div id="modalInputWrap" class="hidden mb-4">
+      <input id="modalInput" type="password" class="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm font-bold outline-none transition" />
+    </div>
+    <div class="flex gap-3">
+      <button onclick="closeModal()" class="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold transition">إلغاء</button>
+      <button id="modalConfirm" class="flex-1 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-extrabold transition">تأكيد</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══ UTILS ═══ */
+const AR_DIGITS = {'٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9','۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9'};
+const toEn = s => String(s).replace(/[٠-٩۰-۹]/g, d => AR_DIGITS[d]);
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const reEsc = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const VERSION = '0.4.2';
+const MAX_IMAGES = 20;
+const MAX_SIZE_MB = 5;
+const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
+const ALLOWED_TYPES = ['image/jpeg','image/jpg','image/png','image/webp','image/gif','image/bmp','image/tiff','image/tif'];
+
+function toast(msg, type = 'ok') {
+  const icons = { ok:'fa-circle-check text-emerald-400', err:'fa-circle-exclamation text-rose-400', info:'fa-circle-info text-brand-400', warn:'fa-triangle-exclamation text-amber-400' };
+  $('toastIcon').className = 'fa-solid ' + (icons[type] || icons.ok);
+  $('toastMsg').textContent = msg;
+  const t = $('toast');
+  t.classList.remove('translate-y-24','opacity-0');
+  clearTimeout(t._tm);
+  t._tm = setTimeout(() => t.classList.add('translate-y-24','opacity-0'), 3000);
+}
+function togglePwdVisibility(id) { const el = $(id); el.type = el.type === 'password' ? 'text' : 'password'; }
+
+/* ═══ MODAL ═══ */
+let _modalResolve = null;
+function showModal(opts) {
+  const { title, message, confirmText = 'تأكيد', icon = 'fa-circle-question', color = 'brand', requirePassword = false, requireInput = false, inputValue = '', inputPlaceholder = '' } = opts || {};
+  return new Promise(resolve => {
+    _modalResolve = resolve;
+    $('modalTitle').textContent = title;
+    $('modalMessage').textContent = message || '';
+    $('modalConfirm').textContent = confirmText;
+    const colors = { brand:'bg-brand-500/10 text-brand-500', rose:'bg-rose-500/10 text-rose-500', amber:'bg-amber-500/10 text-amber-500', emerald:'bg-emerald-500/10 text-emerald-500', violet:'bg-violet-500/10 text-violet-500' };
+    $('modalIcon').className = `w-12 h-12 rounded-2xl ${colors[color] || colors.brand} grid place-items-center shrink-0`;
+    $('modalIcon').innerHTML = `<i class="fa-solid ${icon} text-xl"></i>`;
+    const wrap = $('modalInputWrap');
+    const input = $('modalInput');
+    if (requirePassword) {
+      wrap.classList.remove('hidden');
+      input.type = 'password';
+      input.value = '';
+      input.placeholder = '••••••••';
+    } else if (requireInput) {
+      wrap.classList.remove('hidden');
+      input.type = 'text';
+      input.value = inputValue;
+      input.placeholder = inputPlaceholder;
+    } else {
+      wrap.classList.add('hidden');
+      input.value = '';
+    }
+    $('modal').classList.remove('hidden');
+    const submit = () => {
+      const val = (requirePassword || requireInput) ? input.value.trim() : true;
+      closeModal();
+      resolve(val);
+    };
+    $('modalConfirm').onclick = submit;
+    input.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); submit(); } };
+    if (requirePassword || requireInput) setTimeout(() => { input.focus(); input.select?.(); }, 100);
+  });
+}
+function closeModal() { $('modal').classList.add('hidden'); if (_modalResolve) { _modalResolve(null); _modalResolve = null; } }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+/* ═══ ACCOUNT HELPERS ═══ */
+function normAccount(a) { return String(a||'').replace(/[^\dA-Za-z]/g, ''); }
+function formatAccount(a) {
+  const s = String(a||'').trim();
+  const digits = s.replace(/\s/g,'');
+  if (/^\d{16}$/.test(digits)) return digits.replace(/(\d{4})(\d{4})(\d{4})(\d{4})/, '$1 $2 $3 $4');
+  if (/^\d{12}$/.test(digits)) return digits.replace(/(\d{4})(\d{4})(\d{4})/, '$1 $2 $3');
+  if (/^\d{14}$/.test(digits)) return digits.replace(/(\d{4})(\d{4})(\d{4})(\d{2})/, '$1 $2 $3 $4');
+  return s;
+}
+function maskAccount(v) {
+  if (!settings.maskAccounts || !v) return formatAccount(v);
+  const s = String(v);
+  const digits = s.replace(/\s/g,'');
+  if (digits.length <= 4) return s;
+  return '•'.repeat(Math.min(8, digits.length - 4)) + digits.slice(-4);
+}
+function isNA(v) {
+  if (v === null || v === undefined) return true;
+  const s = String(v).trim();
+  return !s || /^n\/?a$/i.test(s) || /^[-—\.]+$/.test(s) || /^null$/i.test(s) || /^none$/i.test(s);
+}
+
+/* ═══ CONTACT REGISTRY ═══ */
+const CONTACTS_KEY = 'ta_contacts_v042';
+function loadContacts() { try { return JSON.parse(localStorage.getItem(CONTACTS_KEY) || '{}'); } catch { return {}; } }
+function saveContacts(c) { localStorage.setItem(CONTACTS_KEY, JSON.stringify(c)); }
+
+function registerContact(account, name, role = 'receiver') {
+  if (!account || !name) return;
+  const n = String(name).trim();
+  if (!n || isNA(n)) return;
+  const key = normAccount(account);
+  if (!key || key.length < 6) return;
+  const contacts = loadContacts();
+  const displayAcc = formatAccount(account);
+  if (!contacts[key]) {
+    contacts[key] = {
+      account: displayAcc, name: n,
+      roles: { [role]: 1 }, count: 1,
+      firstSeen: new Date().toISOString(), lastSeen: new Date().toISOString(),
+      aliases: [n]
+    };
+  } else {
+    const c = contacts[key];
+    if (n && c.name !== n) {
+      if (!c.aliases) c.aliases = [];
+      if (!c.aliases.includes(n)) c.aliases.unshift(n);
+      if (role === 'receiver' && c.roles.receiver) c.name = n;
+      else if (!c.name || isNA(c.name)) c.name = n;
+    }
+    c.roles[role] = (c.roles[role] || 0) + 1;
+    c.count++;
+    c.lastSeen = new Date().toISOString();
+    c.account = displayAcc;
+  }
+  saveContacts(contacts);
+}
+function forceRenameContact(account, newName) {
+  if (!account || !newName) return;
+  const key = normAccount(account);
+  if (!key) return;
+  const contacts = loadContacts();
+  if (!contacts[key]) {
+    contacts[key] = { account: formatAccount(account), name: newName, roles: {}, count: 0, firstSeen: new Date().toISOString(), lastSeen: new Date().toISOString(), aliases: [newName] };
+  } else {
+    contacts[key].name = newName;
+    if (!contacts[key].aliases) contacts[key].aliases = [];
+    if (!contacts[key].aliases.includes(newName)) contacts[key].aliases.unshift(newName);
+    contacts[key].lastSeen = new Date().toISOString();
+  }
+  saveContacts(contacts);
+}
+function lookupContact(account) {
+  const key = normAccount(account);
+  if (!key) return null;
+  return loadContacts()[key] || null;
+}
+function renderContactsList() {
+  const contacts = loadContacts();
+  const q = ($('contactSearch')?.value || '').trim().toLowerCase();
+  const entries = Object.entries(contacts).filter(([k, v]) => {
+    if (!q) return true;
+    return (v.name || '').toLowerCase().includes(q) || (v.account || '').toLowerCase().includes(q);
+  }).sort((a, b) => (b[1].count || 0) - (a[1].count || 0));
+
+  const cnt = $('contactCount'); if (cnt) cnt.textContent = `${entries.length} جهة`;
+  const el = $('contactsList'); if (!el) return;
+  if (!entries.length) {
+    el.innerHTML = '<p class="text-center text-xs text-slate-400 py-8">لا توجد جهات اتصال بعد — ابدأ التحليل</p>';
+    return;
+  }
+  el.innerHTML = entries.map(([k, c]) => {
+    const roles = [];
+    if (c.roles?.sender) roles.push(`<span class="bank-chip bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"><i class="fa-solid fa-arrow-up"></i> مرسل (${c.roles.sender})</span>`);
+    if (c.roles?.receiver) roles.push(`<span class="bank-chip bg-brand-500/10 text-brand-600 dark:text-brand-400"><i class="fa-solid fa-arrow-down"></i> مستلم (${c.roles.receiver})</span>`);
+    return `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3 flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-brand-600 text-white grid place-items-center font-extrabold text-sm shrink-0">
+        ${esc((c.name||'?').trim().charAt(0))}
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="font-extrabold text-sm truncate">${esc(c.name || '—')}</p>
+        <p class="font-mono text-[11px] text-slate-500 dark:text-slate-400 truncate">${esc(c.account)}</p>
+        <div class="flex flex-wrap gap-1.5 mt-1.5">${roles.join('')}
+          <span class="bank-chip bg-slate-100 dark:bg-slate-800 text-slate-500"><i class="fa-solid fa-repeat"></i> ${c.count} عملية</span>
+        </div>
+      </div>
+      <button onclick="editContactName('${k}')" class="w-8 h-8 rounded-lg hover:bg-brand-500/10 text-brand-500 transition grid place-items-center shrink-0 edit-btn" title="تعديل الاسم">
+        <i class="fa-solid fa-pen text-xs"></i>
+      </button>
+    </div>`;
+  }).join('');
+}
+async function editContactName(key) {
+  const contacts = loadContacts();
+  const c = contacts[key];
+  if (!c) return;
+  const newName = await showModal({
+    title: 'تعديل اسم جهة الاتصال',
+    message: `الحساب: ${c.account}`,
+    confirmText: 'حفظ', icon: 'fa-user-pen', color: 'violet',
+    requireInput: true, inputValue: c.name, inputPlaceholder: 'الاسم الصحيح'
+  });
+  if (!newName || newName === c.name) return;
+  c.name = newName;
+  if (!c.aliases) c.aliases = [];
+  if (!c.aliases.includes(newName)) c.aliases.unshift(newName);
+  saveContacts(contacts);
+  renderContactsList();
+  renderAccountTotals();
+  toast('تم حفظ الاسم');
+}
+async function clearContacts() {
+  const ok = await showModal({ title:'مسح جهات الاتصال', message:'سيتم حذف كل الجهات. متأكد؟', confirmText:'مسح', icon:'fa-address-book', color:'rose' });
+  if (!ok) return;
+  localStorage.removeItem(CONTACTS_KEY);
+  renderContactsList();
+  renderStats();
+  renderDataStats();
+  toast('تم المسح');
+}
+
+/* ═══ AUTH ═══ */
+async function hashPwd(pwd) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pwd + '|ta-v042-salt'));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+const ADMIN_KEY = 'ta_admin_v042';
+const SESSION_KEY = 'ta_session_v042';
+
+async function getAdmin() {
+  const stored = localStorage.getItem(ADMIN_KEY);
+  if (stored) return JSON.parse(stored);
+  const def = { username: 'admin', passwordHash: await hashPwd('admin123'), displayName: 'المدير', email: 'admin@example.com', createdAt: new Date().toISOString() };
+  localStorage.setItem(ADMIN_KEY, JSON.stringify(def));
+  return def;
+}
+function getSession() {
+  const s = sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(SESSION_KEY);
+  if (!s) return null;
+  try { const obj = JSON.parse(s); if (Date.now() - obj.at > getSettings().sessionTimeout * 60 * 1000) { clearSession(); return null; } return obj; }
+  catch { return null; }
+}
+function setSession(remember) {
+  const s = { at: Date.now(), username: 'admin' };
+  if (remember) localStorage.setItem(SESSION_KEY, JSON.stringify(s));
+  else sessionStorage.setItem(SESSION_KEY, JSON.stringify(s));
+}
+function clearSession() { sessionStorage.removeItem(SESSION_KEY); localStorage.removeItem(SESSION_KEY); }
+
+async function handleLogin(e) {
+  e.preventDefault();
+  const u = $('loginUser').value.trim();
+  const p = $('loginPwd').value;
+  const admin = await getAdmin();
+  if (u === admin.username && await hashPwd(p) === admin.passwordHash) {
+    setSession($('rememberMe').checked);
+    logAudit('login', `دخول ناجح — ${u}`);
+    showApp();
+    toast('مرحباً بك 👋');
+  } else showLoginError('بيانات غير صحيحة');
+}
+function showLoginError(msg) {
+  $('loginError').classList.remove('hidden');
+  $('loginErrorText').textContent = msg;
+  setTimeout(() => $('loginError').classList.add('hidden'), 4000);
+}
+function showApp() {
+  $('loginView').classList.add('hidden');
+  $('appView').classList.remove('hidden');
+  const admin = JSON.parse(localStorage.getItem(ADMIN_KEY) || '{}');
+  populateBankSelects();
+  applyAllSettings();
+  renderContactsList();
+}
+
+/* ═══ SETTINGS ═══ */
+const SETTINGS_KEY = 'ta_settings_v042';
+const DEFAULT_SETTINGS = {
+  darkMode: null, fontSize: 'normal', animations: true,
+  autoSave: true, showReasoning: true, autoLink: true,
+  sessionTimeout: 30, maskAccounts: false,
+  customBanks: []   // ← [{name, app}, ...]
+};
+let settings = { ...DEFAULT_SETTINGS };
+
+function loadSettings() {
+  try {
+    settings = { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') };
+    if (!Array.isArray(settings.customBanks)) settings.customBanks = [];
+    // ترحيل من نصوص إلى كائنات {name, app}
+    settings.customBanks = settings.customBanks.map(b =>
+      typeof b === 'string' ? { name: b, app: '' }
+      : (b && b.name ? { name: b.name, app: b.app || '' } : null)
+    ).filter(Boolean);
+  } catch {
+    settings = { ...DEFAULT_SETTINGS };
+  }
+}
+function saveSettings() { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }
+function getSettings() { return settings; }
+
+function resetAllSettings() {
+  showModal({ title:'استعادة الإعدادات', message:'إرجاع جميع الإعدادات للحالة الأصلية؟', confirmText:'استعادة', icon:'fa-rotate-left', color:'amber' })
+    .then(ok => { if (!ok) return; settings = { ...DEFAULT_SETTINGS, customBanks: [] }; saveSettings(); applyAllSettings(); syncSettingsUI(); toast('تمت الاستعادة'); });
+}
+function applyAllSettings() {
+  const isDark = settings.darkMode !== null ? settings.darkMode : window.matchMedia('(prefers-color-scheme: dark)').matches;
+  document.documentElement.classList.toggle('dark', isDark);
+  const th = $('themeIcon'); if (th) th.className = isDark ? 'fa-solid fa-sun text-amber-300' : 'fa-solid fa-moon text-slate-600';
+  document.body.classList.remove('font-sm','font-lg');
+  if (settings.fontSize === 'sm') document.body.classList.add('font-sm');
+  if (settings.fontSize === 'lg') document.body.classList.add('font-lg');
+  document.body.classList.toggle('no-anim', !settings.animations);
+}
+function syncSettingsUI() {
+  const setc = (id, v) => { const el = $(id); if (el) el.checked = !!v; };
+  setc('setDarkMode', document.documentElement.classList.contains('dark'));
+  setc('setAnimations', settings.animations !== false);
+  setc('setAutoSave', settings.autoSave);
+  setc('setShowReasoning', settings.showReasoning);
+  setc('setAutoLink', settings.autoLink);
+  document.querySelectorAll('.font-size-btn').forEach(b => {
+    const active = b.dataset.fontSize === settings.fontSize;
+    b.classList.toggle('bg-brand-500', active);
+    b.classList.toggle('text-white', active);
+  });
+  renderCustomBanks();
+  renderSudanBanks();
+  renderDataStats();
+  renderAuditLog();
+  renderContactsList();
+}
+function toggleTheme() { settings.darkMode = !document.documentElement.classList.contains('dark'); saveSettings(); applyAllSettings(); }
+function setFontSize(size) { settings.fontSize = size; saveSettings(); applyAllSettings(); syncSettingsUI(); }
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.id === 'setDarkMode') { settings.darkMode = t.checked; saveSettings(); applyAllSettings(); }
+  else if (t.id === 'setAnimations') { settings.animations = t.checked; saveSettings(); applyAllSettings(); }
+  else if (t.id === 'setAutoSave') { settings.autoSave = t.checked; saveSettings(); }
+  else if (t.id === 'setShowReasoning') { settings.showReasoning = t.checked; saveSettings(); }
+  else if (t.id === 'setAutoLink') { settings.autoLink = t.checked; saveSettings(); }
+});
+function openSettings(section = 'contacts') {
+  $('appView').classList.add('hidden');
+  $('settingsView').classList.remove('hidden');
+  window.scrollTo({ top: 0 });
+  switchSettingsSection(section);
+  syncSettingsUI();
+}
+function closeSettings() { $('settingsView').classList.add('hidden'); $('appView').classList.remove('hidden'); syncSettingsUI(); }
+function switchSettingsSection(section) {
+  document.querySelectorAll('[data-settings-section]').forEach(el => el.classList.toggle('hidden', el.dataset.settingsSection !== section));
+  document.querySelectorAll('[data-settings-nav]').forEach(el => el.classList.toggle('nav-item-active', el.dataset.settingsNav === section));
+}
+
+/* ═══ BANKS ═══ */
+const SUDANESE_BANKS = [
+  { id:'khartoum', name:'بنك الخرطوم', app:'بنكك', currency:'SDG', aliases:['بنكك','bankak','bank of khartoum','bok'] },
+  { id:'faisal', name:'بنك فيصل الإسلامي السوداني', app:'فوري', currency:'SDG', aliases:['فوري','fawri','faisal'] },
+  { id:'omdurman', name:'بنك أمدرمان الوطني', app:'اوكاش', currency:'SDG', aliases:['اوكاش','okash'] },
+  { id:'nile', name:'بنك النيل', app:'ساهل', currency:'SDG', aliases:['ساهل','sahal'] },
+  { id:'blue_nile', name:'بنك النيل الأزرق المشرق', app:'مشرق', currency:'SDG', aliases:['مشرق','mashreq'] },
+  { id:'islamic', name:'البنك الإسلامي السوداني', app:'أمان بلس', currency:'SDG', aliases:['أمان بلس','امان بلس','aman plus'] }
+];
+
+function getAllBanks() {
+  return [
+    ...SUDANESE_BANKS.map(b => ({ name: b.name, app: b.app })),
+    ...(settings.customBanks || [])
+  ];
+}
+function getBankProfile(bankName) {
+  if (!bankName) return null;
+  const std = SUDANESE_BANKS.find(b => b.name === bankName || b.aliases.includes(bankName.toLowerCase()));
+  if (std) return std;
+  const custom = (settings.customBanks || []).find(b => b.name === bankName);
+  if (custom) return { id: 'custom_' + custom.name, name: custom.name, app: custom.app || '—', currency: 'SDG', aliases: [] };
+  return null;
+}
+function populateBankSelects() {
+  const opts = [];
+  opts.push(`<optgroup label="🇸🇩 البنوك السودانية">`);
+  SUDANESE_BANKS.forEach(b => opts.push(`<option value="${esc(b.name)}">${esc(b.name)} — ${esc(b.app)}</option>`));
+  opts.push(`</optgroup>`);
+  if (settings.customBanks.length) {
+    opts.push(`<optgroup label="مخصصة">`);
+    settings.customBanks.forEach(b => opts.push(
+      `<option value="${esc(b.name)}">${esc(b.name)}${b.app ? ' — ' + esc(b.app) : ''}</option>`
+    ));
+    opts.push(`</optgroup>`);
+  }
+  const html = `<option value="">— اختر البنك —</option>` + opts.join('');
+  const gbs = $('globalBankSelect'); if (gbs) gbs.innerHTML = html;
+  const tbs = $('textBankSelect'); if (tbs) tbs.innerHTML = html;
+  document.querySelectorAll('.img-bank-select').forEach(sel => {
+    const v = sel.value; sel.innerHTML = buildBankOptionsHTML(v);
+  });
+}
+function addCustomBank() {
+  const nameInput = $('newBankInput');
+  const appInput  = $('newBankAppInput');
+  const name = nameInput.value.trim();
+  const app  = appInput.value.trim();
+  if (!name) return toast('أدخل اسم البنك', 'err');
+  if (settings.customBanks.some(b => b.name === name)) return toast('موجود مسبقاً', 'warn');
+  settings.customBanks.push({ name, app });
+  saveSettings();
+  nameInput.value = ''; if (appInput) appInput.value = '';
+  renderCustomBanks(); populateBankSelects();
+  toast('تمت إضافة البنك ✨');
+}
+function removeCustomBank(name) {
+  settings.customBanks = settings.customBanks.filter(b => b.name !== name);
+  saveSettings(); renderCustomBanks(); populateBankSelects();
+  toast('تم الحذف');
+}
+function renderCustomBanks() {
+  const el = $('customBankCount'); if (el) el.textContent = settings.customBanks.length;
+  const list = $('customBanksList'); if (!list) return;
+  if (!settings.customBanks.length) {
+    list.innerHTML = '<p class="text-xs text-slate-400">لا توجد بنوك مخصصة</p>';
+    return;
+  }
+  list.innerHTML = settings.customBanks.map(b => `
+    <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-brand-500/10 text-brand-600 dark:text-brand-400 text-xs font-bold">
+      <i class="fa-solid fa-building-columns text-[10px]"></i> ${esc(b.name)}
+      ${b.app ? `<span class="text-[10px] opacity-75">— ${esc(b.app)}</span>` : ''}
+      <button onclick="removeCustomBank('${esc(b.name).replace(/'/g,"\\'")}')" class="hover:text-rose-500 transition">
+        <i class="fa-solid fa-xmark text-[10px]"></i>
+      </button>
+    </span>`).join('');
+}
+function renderSudanBanks() {
+  const el = $('sudanBanksList'); if (!el) return;
+  el.innerHTML = SUDANESE_BANKS.map(b => `
+    <div class="rounded-xl border border-brand-500/20 bg-white dark:bg-ink-800/60 p-3 flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white grid place-items-center shrink-0">
+        <i class="fa-solid fa-building-columns text-sm"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="font-extrabold text-xs truncate">${esc(b.name)}</p>
+        <p class="text-[10px] text-slate-500 dark:text-slate-400">تطبيق: <b class="text-brand-500">${esc(b.app)}</b></p>
+      </div>
+    </div>`).join('');
+}
+
+/* ═══ FIELDS & ALIASES ═══ */
+const FIELDS = [
+  { key:'senderName', label:'اسم المُرسِل', icon:'fa-user', critical:false, editable:true },
+  { key:'senderAccount', label:'من حساب (المرسل)', icon:'fa-hashtag', critical:true, editable:false },
+  { key:'receiverName', label:'اسم المرسل إليه', icon:'fa-user-check', critical:false, editable:true },
+  { key:'receiverAccount', label:'إلى حساب (المستلم)', icon:'fa-credit-card', critical:true, editable:false },
+  { key:'amount', label:'المبلغ', icon:'fa-money-bill-wave', critical:true, editable:false },
+  { key:'currency', label:'العملة', icon:'fa-coins', critical:true, editable:false },
+  { key:'fees', label:'رسوم التحويل', icon:'fa-receipt', critical:false, editable:false },
+  { key:'total', label:'الإجمالي', icon:'fa-calculator', critical:false, editable:false },
+  { key:'bank', label:'البنك', icon:'fa-building-columns', critical:false, editable:false },
+  { key:'app', label:'التطبيق', icon:'fa-mobile-screen', critical:false, editable:false },
+  { key:'ref', label:'رقم العملية', icon:'fa-fingerprint', critical:true, editable:false },
+  { key:'date', label:'التاريخ', icon:'fa-calendar-days', critical:false, editable:false },
+  { key:'time', label:'الزمن', icon:'fa-clock', critical:false, editable:false },
+  { key:'status', label:'الحالة', icon:'fa-circle-check', critical:false, editable:false },
+  { key:'channel', label:'القناة', icon:'fa-tower-broadcast', critical:false, editable:false },
+  { key:'phone', label:'رقم الموبايل', icon:'fa-mobile-screen-button', critical:false, editable:false },
+  { key:'note', label:'التعليق', icon:'fa-comment-dots', critical:false, editable:true },
+];
+
+const FIELD_ALIASES = {
+  // ⚠️ اسم المرسل فقط — أسماء محددة (بدون "اسم المرسل" لأنها ملتبسة مع المرسل إليه)
+  senderName: [
+    'اسم المُرسِل','إسم المُرسِل','اسم المرسل منه','إسم المرسل منه',
+    'اسم الرسول','إسم الرسول','الرسول','الراسل','اسم الراسل',
+    'اسم المحول','إسم المحول','اسم صاحب الحساب','صاحب الحساب',
+    'اسم العميل','اسم الدافع','اسم المصدر','اسم الخصم',
+    'sender name','sender','from name'
+  ],
+  // ⚠️ اسم المرسل إليه — بكل صيغ الهمزات والهاء/التاء
+  receiverName: [
+    'إسم المرسل إليه','اسم المرسل إليه','إسم المرسل اليه','اسم المرسل اليه',
+    'إسم المرسل إلية','اسم المرسل إلية','إسم المرسل الية','اسم المرسل الية',
+    'إسم المرسل الية','اسم المرسل الية','المرسل إليه','المرسل اليه','المرسل إلية','المرسل الية',
+    'اسم المستلم','إسم المستلم','اسم المستفيد','إسم المستفيد',
+    'اسم المستقبل','إسم المستقبل','اسم المستقبل اليه','إسم المستقبل إليه',
+    'اسم المحول إليه','اسم المحول اليه','إسم المحول إليه','إسم المحول اليه',
+    'المستفيد','المستلم','المستقبل',
+    'beneficiary name','beneficiary','receiver name','receiver','recipient'
+  ],
+  senderAccount: [
+    'من حساب','من الحساب','من حساب رقم','رقم حساب المرسل','حساب المرسل','حساب المُرسِل',
+    'حساب المحول','حساب الخصم','حساب المصدر','الحساب المحول منه','حساب الدافع',
+    'sender account','from account','debit account','source account',
+    'من'   // ← أساسي لإشعارات بنكك (صورة التفاصيل)
+  ],
+  receiverAccount: [
+    'إلى حساب','الى حساب','إلى الحساب','الى الحساب','إلى حساب رقم','الى حساب رقم',
+    'إلى حساب المرسل إليه','إلى حساب المرسل اليه','الى حساب المرسل اليه',
+    'رقم حساب المستفيد','رقم حساب المستلم','حساب المستلم','حساب المستفيد',
+    'حساب المرسل إليه','حساب المرسل اليه','حساب الإيداع','حساب الهدف','حساب المستقبل',
+    'beneficiary account','to account','credit account','receiver account',
+    'إلى','الى','إلي','الي'   // ← أساسي لإشعارات بنكك
+  ],
+  amount: ['المبلغ المحول','قيمة التحويل','قيمة الحوالة','مبلغ التحويل','المبلغ','مبلغ','القيمة','amount','value'],
+  fees: ['رسوم التحويل','الرسوم','رسوم','عمولة التحويل','عمولة','fees','fee','commission'],
+  total: ['الإجمالي الكلي','إجمالي المبلغ','الإجمالي','اجمالي','إجمالي','المجموع','total'],
+  ref: ['رقم عملية التحويل','رقم العملية','رقم الحوالة','رقم التحويل','رقم الإشعار','رقم المرجع','المرجع','رقم الفاتورة','رقم الحركة','رقم القيد','رقم الإيصال','transaction id','transaction number','reference number','reference','ref','receipt number'],
+  date: ['تاريخ العملية','تاريخ التحويل','تاريخ الحوالة','تاريخ الإشعار','التاريخ والزمن','التاريخ والوقت','التاريخ','تاريخ','date','transaction date'],
+  time: ['وقت العملية','وقت التحويل','وقت الإشعار','الساعة','الوقت','time'],
+  bank: ['البنك / المحفظة','البنك','المصرف','المحفظة','بنك','مصرف','bank','wallet'],
+  channel: ['قناة التحويل','القناة','channel','via'],
+  status: ['حالة العملية','حالة التحويل','الحالة','status'],
+  phone: ['رقم الموبايل','رقم الهاتف','رقم الجوال','هاتف','موبايل','phone','mobile','mobile number','phone number','tel'],
+  note: ['التعليق','ملاحظة','ملاحظات','البيان','الوصف','note','comment','description','remark','memo']
+};
+
+const CURRENCIES = {
+  'SDG': ['ج.س','ج س','جنيه سوداني','جنيه','SDG','SDG.'],
+  'SAR': ['ر.س','ر. س','ريال سعودي','ريال','SAR'],
+  'AED': ['د.إ','درهم إماراتي','درهم','AED'],
+  'EGP': ['ج.م','جنيه مصري','EGP'],
+  'USD': ['دولار أمريكي','دولار','USD','$'],
+  'EUR': ['يورو','EUR','€'],
+};
+
+const STATUS_PATTERNS = [
+  { re: /(فشل|مرفوض|ملغى|ملغي|لم تتم|غير مكتمل|rejected|failed|cancelled|declined|مرفوضة|لم تنجح|تعذر)/i, val:'فاشلة' },
+  { re: /(قيد المعالجة|معلّق|معلق|معلقة|بانتظار|pending|processing|in progress|تحت المراجعة|قيد التنفيذ)/i, val:'قيد المعالجة' },
+  { re: /(تمت بنجاح|ناجحة|نجاح|نجحت|مكتملة|مكتمل|تم التحويل|تمت العملية|successful|success|completed|تم بنجاح|تم الخصم|تم الإيداع|تم الارسال|تم الاستلام|تحويلات)/i, val:'ناجحة' },
+];
+
+const CHANNELS = [
+  { re:/(تطبيق الجوال|التطبيق|mobile app|app|تطبيق)/i, val:'تطبيق الجوال' },
+  { re:/(رسالة نصية|sms|رسالة sms)/i, val:'رسالة نصية SMS' },
+  { re:/(الموقع الإلكتروني|online banking|موقع|web)/i, val:'الموقع الإلكتروني' },
+  { re:/(صراف آلي|صراف|atm)/i, val:'صراف آلي ATM' },
+  { re:/(فرع البنك|الفرع|branch)/i, val:'فرع البنك' },
+];
+
+const AR_MONTHS = { 'يناير':1,'كانون الثاني':1,'فبراير':2,'شباط':2,'مارس':3,'آذار':3,'أبريل':4,'ابريل':4,'نيسان':4,'مايو':5,'أيار':5,'يونيو':6,'حزيران':6,'يوليو':7,'تموز':7,'أغسطس':8,'آب':8,'سبتمبر':9,'أيلول':9,'أكتوبر':10,'تشرين الأول':10,'نوفمبر':11,'تشرين الثاني':11,'ديسمبر':12,'كانون الأول':12 };
+const EN_MONTHS = { jan:1,january:1,feb:2,february:2,mar:3,march:3,apr:4,april:4,may:5,jun:6,june:6,jul:7,july:7,aug:8,august:8,sep:9,sept:9,september:9,oct:10,october:10,nov:11,november:11,dec:12,december:12 };
+const AR_DAY_NAMES = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+
+/* ═══ PARSER ═══ */
+function normalizeText(raw) {
+  let t = toEn(raw);
+  t = t.replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '');
+  t = t.replace(/\u00a0/g, ' ');
+  t = t.replace(/[ \t]+/g, ' ');
+  t = t.replace(/\n{3,}/g, '\n\n');
+  t = t.replace(/[：]/g, ':').replace(/[–—]/g, '-');
+  return t.trim();
+}
+
+/**
+ * findByAliases — محسّن:
+ *  - valuePattern بدون \s (لا يعبر الأسطر)
+ *  - reject callback لاستبعاد قيم مشبوهة
+ */
+function findByAliases(text, aliases, opts = {}) {
+  const { valuePattern = '([^\\n|,;،]{1,80})', conf = 0.92, reject } = opts;
+  for (const alias of [...aliases].sort((a,b) => b.length - a.length)) {
+    const re = new RegExp(`(?:^|[\\s\\n|])${reEsc(alias)}\\s*[:：=\\-]?\\s*${valuePattern}`, 'i');
+    const m = text.match(re);
+    if (m && m[1]) {
+      const v = m[1].trim().replace(/[\s|,;،]+$/, '');
+      if (v.length >= 2 && !isNA(v) && !/^(حساب|مبلغ|رقم|من|إلى|الى|إلي|الي|التاريخ|الوقت|الحالة)$/.test(v)) {
+        if (reject && reject(v, alias)) continue;
+        return { value: v, alias, conf, reason: `مرتبط بعبارة «${alias}»` };
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * extractAccountByAliases — دقة عالية:
+ *  1) IBAN
+ *  2) مجموعات أرقام (0763 0191 6750 0001)
+ *  3) أرقام متصلة
+ */
+function extractAccountByAliases(text, aliases) {
+  for (const alias of [...aliases].sort((a,b) => b.length - a.length)) {
+    // 1) IBAN
+    let re = new RegExp(`(?:^|[\\s\\n|>])${reEsc(alias)}\\s*[:：=\\-]?\\s*([A-Z]{2}\\d{2}[A-Z0-9]{10,30})`, 'i');
+    let m = text.match(re);
+    if (m && m[1] && !isNA(m[1])) {
+      return { value: formatAccount(m[1]), rawValue: m[1], alias, conf: 0.97, reason: `IBAN عبر «${alias}»` };
+    }
+    // 2) مجموعات أرقام مع مسافات/شرطات
+    re = new RegExp(`(?:^|[\\s\\n|>])${reEsc(alias)}\\s*[:：=\\-]?\\s*(\\d[\\d\\- ]{4,30}\\d)`, 'i');
+    m = text.match(re);
+    if (m && m[1]) {
+      const raw = m[1].trim();
+      const digits = raw.replace(/\D/g, '');
+      if (digits.length >= 6 && digits.length <= 30) {
+        return { value: formatAccount(raw), rawValue: raw, alias, conf: 0.96, reason: `رقم حساب عبر «${alias}»` };
+      }
+    }
+    // 3) أرقام متصلة
+    re = new RegExp(`(?:^|[\\s\\n|>])${reEsc(alias)}\\s*[:：=\\-]?\\s*(\\d{6,30})`, 'i');
+    m = text.match(re);
+    if (m && m[1] && !isNA(m[1])) {
+      return { value: formatAccount(m[1]), rawValue: m[1], alias, conf: 0.94, reason: `رقم حساب متصل عبر «${alias}»` };
+    }
+  }
+  return null;
+}
+
+function extractPhone(text) {
+  for (const alias of [...FIELD_ALIASES.phone].sort((a,b) => b.length - a.length)) {
+    const re = new RegExp(reEsc(alias) + '\\s*[:：=\\-]?\\s*([+\\d\\-\\s()\\.]{7,25})', 'i');
+    const m = text.match(re);
+    if (m && m[1]) {
+      const v = m[1].trim();
+      if (isNA(v)) continue;
+      const digits = v.replace(/\D/g, '');
+      if (digits.length >= 7 && digits.length <= 15) {
+        return { value: v, conf: 0.93, reason: `«${alias}»` };
+      }
+    }
+  }
+  return null;
+}
+
+function finalizeDate(y, mo, d, conf, reason) {
+  if (y < 1900 || y > 2100 || mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  const iso = `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  const dt = new Date(iso);
+  return { value: iso, iso, conf, reason, dayOfWeek: AR_DAY_NAMES[dt.getDay()] };
+}
+function extractDate(text) {
+  let target = text;
+  for (const alias of FIELD_ALIASES.date) {
+    const re = new RegExp(reEsc(alias) + '\\s*[:：=\\-]?\\s*([^\\n|،;]{4,60})', 'i');
+    const m = text.match(re);
+    if (m) { target = m[1] + '\n' + text; break; }
+  }
+  let m = target.match(/\b(20\d{2})\s*[\/\-\.]\s*(\d{1,2})\s*[\/\-\.]\s*(\d{1,2})\b/);
+  if (m) { const y=+m[1],mo=+m[2],d=+m[3]; if (mo>=1&&mo<=12&&d>=1&&d<=31) return finalizeDate(y,mo,d,0.97,'ISO'); }
+  m = target.match(/\b(\d{1,2})\s*[-\/\.]\s*([A-Za-z]{3,9})\s*[-\/\.]\s*(\d{4})\b/);
+  if (m) {
+    let mo = EN_MONTHS[m[2].toLowerCase()] || EN_MONTHS[m[2].toLowerCase().slice(0,3)];
+    if (mo) return finalizeDate(+m[3], mo, +m[1], 0.97, 'D-Mon-Y');
+  }
+  m = target.match(/\b(\d{1,2})\s*[\/\-\.]\s*(\d{1,2})\s*[\/\-\.]\s*(\d{4})\b/);
+  if (m) {
+    let a=+m[1],b=+m[2],y=+m[3],d,mo;
+    if (a > 12 && b <= 12) { d=a; mo=b; } else if (b > 12 && a <= 12) { mo=a; d=b; } else { d=a; mo=b; }
+    if (mo>=1&&mo<=12&&d>=1&&d<=31) return finalizeDate(y,mo,d,0.93,'DD/MM/YYYY');
+  }
+  m = target.match(/(\d{1,2})\s+([\u0600-\u06FF][\u0600-\u06FF\s]{1,20}?)\s+(\d{4})/);
+  if (m) { const mo = AR_MONTHS[m[2].trim()]; if (mo) return finalizeDate(+m[3],mo,+m[1],0.95,`«${m[2]}»`); }
+  m = target.match(/(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/);
+  if (m) { const mo = EN_MONTHS[m[2].toLowerCase()]; if (mo) return finalizeDate(+m[3],mo,+m[1],0.94,'EN month'); }
+  const now = new Date();
+  if (/\bأمس\b|\bامس\b/.test(text)) { const d=new Date(now); d.setDate(d.getDate()-1); return finalizeDate(d.getFullYear(),d.getMonth()+1,d.getDate(),0.72,'«أمس»'); }
+  if (/\bاليوم\b/.test(text)) return finalizeDate(now.getFullYear(),now.getMonth()+1,now.getDate(),0.75,'«اليوم»');
+  return null;
+}
+function extractTime(text) {
+  let target = text;
+  for (const alias of FIELD_ALIASES.time) {
+    const re = new RegExp(reEsc(alias) + '\\s*[:：=\\-]?\\s*([^\\n|،;]{2,40})', 'i');
+    const m = text.match(re);
+    if (m) { target = m[1] + '\n' + text; break; }
+  }
+  const m = target.match(/\b(\d{1,2})\s*[:.]\s*(\d{2})(?:\s*[:.]\s*(\d{2}))?\s*(ص|م|صباحاً|صباحا|صباح|مساءً|مساء|AM|PM|am|pm)?\b/);
+  if (!m) return null;
+  let h = parseInt(m[1],10);
+  const min = m[2].padStart(2,'0');
+  const sec = m[3];
+  const suffix = (m[4] || '').trim();
+  const isPM = /^(م|مساء|مساءً|PM|pm)$/i.test(suffix);
+  const isAM = /^(ص|صباح|صباحاً|صباحا|AM|am)$/i.test(suffix);
+  if (isPM && h < 12) h += 12;
+  if (isAM && h === 12) h = 0;
+  if (h > 23 || parseInt(min) > 59) return null;
+  return { value: `${String(h).padStart(2,'0')}:${min}${sec?':'+sec:''}`, conf: suffix ? 0.96 : 0.9, reason: suffix ? `12h (${suffix})` : '24h' };
+}
+function detectCurrency(text, bankProfile) {
+  const matches = [];
+  for (const [code, symbols] of Object.entries(CURRENCIES)) {
+    for (const sym of symbols) {
+      const re = new RegExp('(^|[^\\p{L}])' + reEsc(sym) + '($|[^\\p{L}])', 'iu');
+      const m = text.match(re);
+      if (m) matches.push({ code, sym, index: m.index });
+    }
+  }
+  if (!matches.length && bankProfile && bankProfile.currency) {
+    return { value: bankProfile.currency, conf: 0.8, bankDefault: true };
+  }
+  if (!matches.length) return null;
+  matches.sort((a,b) => a.index - b.index);
+  return { value: matches[0].code, conf: 0.94 };
+}
+function extractAmounts(text) {
+  const currencyAlt = Object.values(CURRENCIES).flat().sort((a,b)=>b.length-a.length).map(reEsc).join('|');
+  const candidates = [];
+  const push = (valStr, idx, baseScore, reason) => {
+    const clean = String(valStr).replace(/[^\d.,]/g, '').replace(/,/g, '');
+    const n = parseFloat(clean);
+    if (!isNaN(n) && n > 0 && n < 1e12) candidates.push({ value: n, index: idx, score: baseScore, reason });
+  };
+  let m;
+  const reA = new RegExp('([\\d][\\d,]{0,15}(?:\\.\\d{1,2})?)\\s*(?:' + currencyAlt + ')', 'gi');
+  while ((m = reA.exec(text))) push(m[1], m.index, 5, 'رقم + عملة');
+  const reC = /(?:مبلغ|المبلغ|قيمة|إجمالي|اجمالي|amount|total|value)\s*[:：]?\s*([\d][\d,]{0,15}(?:\.\d{1,2})?)/gi;
+  while ((m = reC.exec(text))) push(m[1], m.index, 7, 'سياق «مبلغ»');
+  const reD = /(?:^|[\s\n])([\d]{1,3}(?:,[\d]{3})+(?:\.\d{1,2})?|\d{3,}(?:\.\d{1,2})?)(?=$|[\s\n])/g;
+  while ((m = reD.exec(text))) push(m[1], m.index, 2, 'رقم كبير');
+  candidates.forEach(c => {
+    const before = text.slice(Math.max(0, c.index - 30), c.index);
+    if (/مبلغ|amount|قيمة|إجمالي|اجمالي/i.test(before)) c.score += 3;
+    if (/رسوم|fee|fees/i.test(before)) c.score -= 5;
+    if (/رصيد|balance/i.test(before)) c.score -= 4;
+  });
+  candidates.sort((a, b) => (b.score - a.score) || (b.value - a.value));
+  return { candidates, primary: candidates[0] || null };
+}
+function extractAmountByAliases(text, aliases) {
+  for (const alias of [...aliases].sort((a,b)=>b.length-a.length)) {
+    const re = new RegExp(reEsc(alias) + '\\s*[:：=\\-]?\\s*([\\d][\\d,]{0,15}(?:\\.\\d{1,2})?)', 'i');
+    const m = text.match(re);
+    if (m) { const n = parseFloat(m[1].replace(/,/g, '')); if (!isNaN(n) && n > 0) return { value: n, conf: 0.94, reason: `«${alias}»` }; }
+  }
+  return null;
+}
+function detectStatus(text) {
+  for (const s of STATUS_PATTERNS) if (s.re.test(text)) return { value: s.val, conf: 0.94, reason: 'أنماط الحالة' };
+  return null;
+}
+function detectChannel(text) {
+  for (const c of CHANNELS) if (c.re.test(text)) return { value: c.val, conf: 0.82, reason: 'قناة معروفة' };
+  return null;
+}
+function extractNote(text) {
+  for (const alias of [...FIELD_ALIASES.note].sort((a,b) => b.length - a.length)) {
+    const re = new RegExp(reEsc(alias) + '\\s*[:：=\\-]?\\s*([^\\n|]{1,150})', 'i');
+    const m = text.match(re);
+    if (m && m[1]) {
+      const v = m[1].trim();
+      if (!isNA(v) && v.length >= 2) return { value: v, alias, conf: 0.88, reason: `«${alias}»` };
+    }
+  }
+  return null;
+}
+
+/**
+ * parseTransfer — النسخة المُصلَحة:
+ *  1) نستخرج اسم المرسل إليه أولاً (نطابقاته أكثر تحديداً)
+ *  2) نحذف سطر المرسل إليه من النص
+ *  3) ثم نبحث عن اسم المرسل في النص النظيف
+ *  هذا يمنع اسم المرسل من ابتلاع "اليه" من الاسم الآخر
+ */
+function parseTransfer(rawText, bankName) {
+  const text = normalizeText(rawText);
+  const bankProfile = getBankProfile(bankName);
+  const V = {}, C = {}, R = {}, META = { bankProfile };
+
+  const set = (k, obj, fc = 0.75) => {
+    if (!obj || obj.value === undefined || obj.value === null || obj.value === '' || isNA(obj.value)) return;
+    V[k] = obj.value; C[k] = obj.conf ?? fc; R[k] = obj.reason || 'مباشر';
+  };
+
+  // البنك / التطبيق
+  if (bankName) {
+    V.bank = bankName; C.bank = 0.99; R.bank = 'مُحدَّد يدوياً';
+    if (bankProfile) { V.app = bankProfile.app; C.app = 0.98; R.app = `التطبيق الرسمي لـ${bankProfile.name}`; }
+  }
+
+  // رقم العملية
+  set('ref', findByAliases(text, FIELD_ALIASES.ref, { valuePattern: '([A-Za-z0-9\\-\\/]{4,40})', conf: 0.96 }));
+
+  // العملة
+  const cur = detectCurrency(text, bankProfile);
+  if (cur) { V.currency = cur.value; C.currency = cur.conf; R.currency = cur.bankDefault ? `العملة الافتراضية لـ${bankProfile.name}` : 'رمز عملة واضح'; }
+
+  // المبلغ
+  const amounts = extractAmounts(text);
+  if (amounts.primary) {
+    V.amount = amounts.primary.value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    C.amount = Math.min(0.97, 0.6 + amounts.primary.score * 0.05);
+    R.amount = amounts.primary.reason;
+  }
+  const fees = extractAmountByAliases(text, FIELD_ALIASES.fees);
+  if (fees) { V.fees = fees.value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); C.fees = fees.conf; R.fees = fees.reason; }
+  const total = extractAmountByAliases(text, FIELD_ALIASES.total);
+  if (total) { V.total = total.value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); C.total = total.conf; R.total = total.reason; }
+
+  // الحسابات
+  set('senderAccount', extractAccountByAliases(text, FIELD_ALIASES.senderAccount));
+  set('receiverAccount', extractAccountByAliases(text, FIELD_ALIASES.receiverAccount));
+
+  // الأسماء — ⚠️ استخراج المرسل إليه أولاً
+  const NAME_VALUE = '([\\u0600-\\u06FFA-Za-z][\\u0600-\\u06FFA-Za-z \\t\\.\\-\\_]{1,60})';
+
+  const recvNameObj = findByAliases(text, FIELD_ALIASES.receiverName, {
+    valuePattern: NAME_VALUE, conf: 0.94
+  });
+  set('receiverName', recvNameObj);
+
+  // نظّف النص من سطر المرسل إليه قبل البحث عن اسم المرسل
+  let textForSender = text;
+  if (recvNameObj) {
+    const remover = new RegExp(reEsc(recvNameObj.alias) + '[^\\n]*', 'i');
+    textForSender = text.replace(remover, ' ');
+  }
+  set('senderName', findByAliases(textForSender, FIELD_ALIASES.senderName, {
+    valuePattern: NAME_VALUE, conf: 0.93
+  }));
+
+  // التاريخ والزمن
+  const dateObj = extractDate(text);
+  if (dateObj) { V.date = dateObj.value; C.date = dateObj.conf; R.date = dateObj.reason; META.dateInfo = dateObj; if (dateObj.dayOfWeek) META.dayOfWeek = dateObj.dayOfWeek; }
+  const timeObj = extractTime(text);
+  if (timeObj) { V.time = timeObj.value; C.time = timeObj.conf; R.time = timeObj.reason; META.timeInfo = timeObj; }
+
+  const status = detectStatus(text);
+  if (status) { V.status = status.value; C.status = status.conf; R.status = status.reason; }
+
+  set('channel', detectChannel(text));
+  set('phone', extractPhone(text));
+  set('note', extractNote(text));
+
+  // ذكاء جهات الاتصال
+  if (settings.autoLink && V.senderAccount && !V.senderName) {
+    const c = lookupContact(V.senderAccount);
+    if (c && c.name && !isNA(c.name)) {
+      V.senderName = c.name;
+      C.senderName = 0.85;
+      R.senderName = `مُستنتج من سجل جهات الاتصال برقم الحساب «${V.senderAccount}»`;
+      META.senderResolved = true;
+    }
+  }
+  if (settings.autoLink && V.receiverAccount && !V.receiverName) {
+    const c = lookupContact(V.receiverAccount);
+    if (c && c.name && !isNA(c.name)) {
+      V.receiverName = c.name;
+      C.receiverName = 0.83;
+      R.receiverName = `مُستنتج من سجل جهات الاتصال برقم الحساب`;
+      META.receiverResolved = true;
+    }
+  }
+
+  return { values: V, conf: C, reasons: R, meta: META, raw: rawText, cleanText: text, amountCandidates: amounts.candidates };
+}
+
+/* ═══ VALIDATION / ANOMALIES / RISK ═══ */
+function crossValidate(result) {
+  const notes = [];
+  const V = result.values;
+  const toNum = s => parseFloat(String(s || '').replace(/,/g, ''));
+  const amt = toNum(V.amount), fee = toNum(V.fees), tot = toNum(V.total);
+  if (!isNaN(amt) && !isNaN(tot) && !isNaN(fee)) {
+    const diff = Math.abs((amt + fee) - tot);
+    if (diff < 0.02) notes.push({ type:'ok', msg:`تحقق رياضي ✓ ${amt} + ${fee} = ${tot}`, boost:{ amount:0.03, fees:0.03, total:0.05 } });
+    else if (diff > 0.5) notes.push({ type:'warn', msg:`تعارض رياضي`, penalty:{ total:0.15 } });
+  }
+  if (V.date && V.time) {
+    const dt = new Date(`${V.date}T${V.time}`);
+    if (!isNaN(dt.getTime())) {
+      if ((dt - Date.now()) > 5*60000) notes.push({ type:'warn', msg:`التاريخ في المستقبل`, penalty:{ date:0.2, time:0.2 } });
+      else notes.push({ type:'ok', msg:`طابع زمني متماسك ✓`, boost:{ date:0.03, time:0.03 } });
+    }
+  }
+  if (V.ref && V.ref.length >= 8 && /\d/.test(V.ref)) notes.push({ type:'ok', msg:`رقم العملية سليم`, boost:{ ref:0.02 } });
+  if (V.senderAccount && V.receiverAccount && normAccount(V.senderAccount) === normAccount(V.receiverAccount))
+    notes.push({ type:'warn', msg:'حساب المرسل = المستلم', penalty:{ senderAccount:0.3, receiverAccount:0.3 } });
+  notes.forEach(n => {
+    if (n.boost) Object.entries(n.boost).forEach(([k,v]) => { if (result.conf[k] !== undefined) result.conf[k] = Math.min(0.99, result.conf[k] + v); });
+    if (n.penalty) Object.entries(n.penalty).forEach(([k,v]) => { if (result.conf[k] !== undefined) result.conf[k] = Math.max(0.1, result.conf[k] - v); });
+  });
+  return notes;
+}
+function detectAnomalies(result, history) {
+  const anomalies = [];
+  const V = result.values;
+  const amt = parseFloat(String(V.amount || '').replace(/,/g, ''));
+  const pastAmounts = history.map(h => parseFloat(String(h.amount||'').replace(/,/g,''))).filter(n => !isNaN(n));
+  if (!isNaN(amt) && pastAmounts.length >= 3) {
+    const mean = pastAmounts.reduce((a,b)=>a+b,0) / pastAmounts.length;
+    const std = Math.sqrt(pastAmounts.reduce((a,b) => a + Math.pow(b-mean,2), 0) / pastAmounts.length);
+    const z = std > 0 ? (amt - mean) / std : 0;
+    if (Math.abs(z) >= 2.5) anomalies.push({ level:'high', icon:'fa-chart-line', title:'مبلغ شاذ', detail:`يبعد ${Math.abs(z).toFixed(1)} انحراف معياري.` });
+    else if (Math.abs(z) >= 1.5) anomalies.push({ level:'medium', icon:'fa-arrow-trend-up', title:'مبلغ أعلى من المعتاد', detail:`فرق ${(amt-mean).toFixed(0)}.` });
+  }
+  if (V.receiverAccount && history.length >= 2) {
+    const known = history.some(h => normAccount(h.receiverAccount) === normAccount(V.receiverAccount));
+    if (!known) anomalies.push({ level:'medium', icon:'fa-user-plus', title:'مستلم جديد', detail:`«${V.receiverName || V.receiverAccount}» لم يظهر سابقاً.` });
+  }
+  if (V.ref && history.find(h => h.ref && h.ref === V.ref))
+    anomalies.push({ level:'high', icon:'fa-clone', title:'رقم عملية مكرر', detail:`ظهر مسبقاً.` });
+  const missing = FIELDS.filter(f => f.critical && !V[f.key]);
+  if (missing.length) anomalies.push({ level: missing.length >= 2 ? 'high' : 'medium', icon:'fa-circle-question', title:`حقول حرجة مفقودة (${missing.length})`, detail: missing.map(f => f.label).join('، ') });
+  return anomalies;
+}
+function assessRisk(result, anomalies) {
+  let score = 8; const factors = [];
+  anomalies.forEach(a => { const w = a.level==='high'?22:a.level==='medium'?12:5; score += w; factors.push({ label:a.title, weight:w }); });
+  if (!result.values.ref) { score += 10; factors.push({ label:'غياب رقم العملية', weight:10 }); }
+  const amt = parseFloat(String(result.values.amount || '').replace(/,/g, ''));
+  if (!isNaN(amt)) {
+    if (amt >= 500000) { score += 15; factors.push({ label:'مبلغ ضخم', weight:15 }); }
+    else if (amt >= 100000) { score += 8; factors.push({ label:'مبلغ كبير', weight:8 }); }
+  }
+  const confValues = Object.values(result.conf);
+  const confAvg = confValues.length ? confValues.reduce((a,b)=>a+b,0)/confValues.length : 0;
+  if (confAvg < 0.6) { score += 12; factors.push({ label:'دقة منخفضة', weight:12 }); }
+  score = Math.max(0, Math.min(100, Math.round(score)));
+  let label, color;
+  if (score < 25) { label='منخفض'; color='emerald'; }
+  else if (score < 50) { label='متوسط'; color='amber'; }
+  else if (score < 75) { label='مرتفع'; color='orange'; }
+  else { label='حرج'; color='rose'; }
+  return { score, label, color, factors };
+}
+function synthesizeInsights(result, anomalies, risk, history) {
+  const insights = [];
+  const V = result.values;
+  if (risk.score < 25 && anomalies.length === 0) insights.push({ icon:'fa-shield-heart', color:'emerald', title:'العملية طبيعية', body:'لا مؤشرات مقلقة.' });
+  else if (risk.score >= 50) insights.push({ icon:'fa-shield-virus', color:'rose', title:'راجع العملية', body:`${anomalies.length} مؤشر.` });
+  if (V.receiverAccount) {
+    const rh = history.filter(h => normAccount(h.receiverAccount) === normAccount(V.receiverAccount));
+    if (rh.length > 0) insights.push({ icon:'fa-repeat', color:'brand', title:'مستلم معروف', body:`${rh.length} تحويلات سابقة إليه.` });
+  }
+  if (V.senderName && result.meta.senderResolved) insights.push({ icon:'fa-link', color:'violet', title:'ربط تلقائي للمرسل', body:`تم التعرف على «${V.senderName}» من سجل جهات الاتصال.` });
+  if (V.app) insights.push({ icon:'fa-mobile-screen', color:'violet', title:'التطبيق', body:`${V.app} — التطبيق الرسمي.` });
+  const present = FIELDS.filter(f => V[f.key]).length;
+  const pct = Math.round(present / FIELDS.length * 100);
+  if (pct >= 85) insights.push({ icon:'fa-circle-check', color:'emerald', title:'استخراج شبه كامل', body:`${pct}% من الحقول.` });
+  return insights;
+}
+
+/* ═══ DEEP ANALYZE ═══ */
+async function deepAnalyze(rawText, source, bankName, opts = {}) {
+  const stream = opts.silent ? null : $('reasoningStream');
+  if (stream) stream.innerHTML = '';
+  if (!opts.silent) {
+    $('engineStatus').textContent = 'يعمل…';
+    $('engineStatus').className = 'text-[10px] font-bold px-2 py-1 rounded-md bg-brand-500/10 text-brand-600 dark:text-brand-400 animate-pulse';
+  }
+  const log = (icon, color, text, delay = 120) => new Promise(resolve => {
+    if (!stream || !settings.showReasoning) return resolve();
+    setTimeout(() => {
+      const el = document.createElement('div');
+      el.className = 'stream-item flex items-start gap-2 text-slate-600 dark:text-slate-300';
+      el.innerHTML = `<i class="fa-solid ${icon} text-${color}-500 mt-0.5 shrink-0 text-xs"></i><span class="flex-1">${text}</span>`;
+      stream.appendChild(el);
+      stream.scrollTop = stream.scrollHeight;
+      resolve();
+    }, delay);
+  });
+
+  await log('fa-play', 'brand', `بدء من: ${esc(source)} — ${esc(bankName || 'بدون بنك')}`, 80);
+  await log('fa-broom', 'brand', 'المرحلة 1: تطبيع النص…');
+  const result = parseTransfer(rawText, bankName);
+  await log('fa-check', 'emerald', `${result.cleanText.length} حرف`);
+
+  await log('fa-diagram-project', 'brand', 'المرحلة 2: استخراج الكيانات…');
+  const found = FIELDS.filter(f => result.values[f.key]).length;
+  await log('fa-check', 'emerald', `${found} حقل مستخرج`);
+  if (result.values.senderAccount) await log('fa-hashtag', 'sky', `من حساب: ${esc(result.values.senderAccount)}`);
+  if (result.values.receiverAccount) await log('fa-credit-card', 'sky', `إلى حساب: ${esc(result.values.receiverAccount)}`);
+  if (result.values.receiverName) await log('fa-user-check', 'sky', `المستلم: ${esc(result.values.receiverName)}`);
+
+  await log('fa-scale-balanced', 'brand', 'المرحلة 3: تحقق متقاطع…');
+  const validation = crossValidate(result);
+  for (const v of validation) {
+    const ic = v.type === 'ok' ? 'fa-circle-check' : 'fa-triangle-exclamation';
+    const cl = v.type === 'ok' ? 'emerald' : 'amber';
+    await log(ic, cl, v.msg);
+  }
+
+  await log('fa-radar', 'brand', 'المرحلة 4: كشف الشذوذ…');
+  const anomalies = detectAnomalies(result, history);
+  await log(anomalies.length ? 'fa-triangle-exclamation' : 'fa-check', anomalies.length ? 'amber' : 'emerald', anomalies.length ? `${anomalies.length} شذوذ` : 'نظيف');
+
+  await log('fa-shield-halved', 'brand', 'المرحلة 5: تقييم المخاطر…');
+  const risk = assessRisk(result, anomalies);
+  await log(risk.score < 25 ? 'fa-shield-heart' : 'fa-shield-virus', risk.color === 'emerald' ? 'emerald' : 'amber', `${risk.score}/100 (${risk.label})`);
+
+  await log('fa-address-book', 'violet', 'المرحلة 6: تحديث سجل جهات الاتصال…');
+  if (result.values.receiverName && result.values.receiverAccount) {
+    registerContact(result.values.receiverAccount, result.values.receiverName, 'receiver');
+    await log('fa-check', 'violet', `تسجيل المستلم: ${esc(result.values.receiverName)}`);
+  }
+  if (result.values.senderName && result.values.senderAccount && !result.meta.senderResolved) {
+    registerContact(result.values.senderAccount, result.values.senderName, 'sender');
+    await log('fa-check', 'violet', `تسجيل المرسل: ${esc(result.values.senderName)}`);
+  }
+  if (result.meta.senderResolved) await log('fa-link', 'violet', `المرسل «${esc(result.values.senderName)}» من رقم حسابه`);
+
+  await log('fa-lightbulb', 'brand', 'المرحلة 7: توليد الرؤى…');
+  const insights = synthesizeInsights(result, anomalies, risk, history);
+
+  const confValues = Object.values(result.conf);
+  const overallConf = confValues.length ? Math.round(confValues.reduce((a,b)=>a+b,0)/confValues.length*100) : 0;
+  result.overall = overallConf;
+  result.anomalies = anomalies;
+  result.risk = risk;
+  result.insights = insights;
+  result.validation = validation;
+  result.bankName = bankName;
+
+  await log('fa-circle-check', 'emerald', `اكتمل — الثقة ${overallConf}%`);
+
+  if (!opts.silent) {
+    $('engineStatus').textContent = 'مكتمل';
+    $('engineStatus').className = 'text-[10px] font-bold px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400';
+  }
+  return result;
+}
+
+/* ═══ IMAGE QUEUE ═══ */
+let imageQueue = [];
+let isAnalyzing = false;
+
+function validateFile(file) {
+  if (!ALLOWED_TYPES.includes(file.type)) return `صيغة غير مدعومة`;
+  if (file.size > MAX_SIZE_BYTES) return `الحجم ${(file.size/1024/1024).toFixed(2)}MB > ${MAX_SIZE_MB}MB`;
+  return null;
+}
+function handleFiles(files) {
+  if (!files || !files.length) return;
+  const arr = Array.from(files);
+  let added = 0, rejected = 0;
+  for (const f of arr) {
+    if (imageQueue.length >= MAX_IMAGES) { rejected++; break; }
+    const err = validateFile(f);
+    if (err) { rejected++; continue; }
+    if (imageQueue.some(q => q.file.name === f.name && q.file.size === f.size)) { rejected++; continue; }
+    imageQueue.push({
+      id: 'img_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+      file: f, dataUrl: URL.createObjectURL(f), name: f.name, size: f.size,
+      bankName: '', status: 'pending', result: null, error: null
+    });
+    added++;
+  }
+  if (added > 0) toast(`تمت إضافة ${added} صورة`, 'ok');
+  if (rejected > 0) toast(`${rejected} صورة مرفوضة`, 'warn');
+  renderQueue();
+  updateAnalyzeButton();
+}
+function renderQueue() {
+  const wrap = $('imageQueueWrap');
+  const list = $('imageQueue');
+  if (!imageQueue.length) { wrap.classList.add('hidden'); return; }
+  wrap.classList.remove('hidden');
+  $('queueCount').textContent = imageQueue.length;
+  list.innerHTML = imageQueue.map((item, idx) => {
+    const sizeMB = (item.size / 1024 / 1024).toFixed(2);
+    const statusIcon = item.status === 'done' ? '<i class="fa-solid fa-circle-check text-emerald-500"></i>'
+                     : item.status === 'error' ? '<i class="fa-solid fa-circle-xmark text-rose-500"></i>'
+                     : item.status === 'processing' ? '<i class="fa-solid fa-spinner fa-spin text-brand-500"></i>'
+                     : '<i class="fa-solid fa-clock text-slate-400"></i>';
+    const borderCls = item.status === 'done' ? 'thumb-ok' : item.status === 'error' ? 'thumb-err' : item.status === 'processing' ? 'thumb-proc' : 'border-slate-200 dark:border-slate-800';
+    const disabled = isAnalyzing ? 'disabled' : '';
+    return `<div class="pop-in flex items-center gap-3 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border-2 ${borderCls}">
+      <div class="relative shrink-0">
+        <img src="${item.dataUrl}" class="w-14 h-14 object-cover rounded-lg border border-slate-200 dark:border-slate-800" onerror="this.style.display='none'" />
+        <span class="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-white dark:bg-ink-900 border border-slate-200 dark:border-slate-800 grid place-items-center text-[9px] font-extrabold">${idx+1}</span>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-1.5 mb-1">
+          <p class="font-extrabold text-[11px] truncate flex-1">${esc(item.name)}</p>
+          ${statusIcon}
+        </div>
+        <p class="text-[10px] text-slate-400 mb-1.5">${sizeMB} MB</p>
+        <select class="img-bank-select w-full text-[11px] font-bold px-2 py-1 rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 outline-none" data-img-id="${item.id}" ${disabled} onchange="setImageBank('${item.id}', this.value)">
+          ${buildBankOptionsHTML(item.bankName)}
+        </select>
+      </div>
+      <button onclick="removeImage('${item.id}')" class="w-7 h-7 rounded-lg hover:bg-rose-500/10 text-slate-400 hover:text-rose-500 transition grid place-items-center shrink-0" ${disabled}>
+        <i class="fa-solid fa-xmark text-xs"></i>
+      </button>
+    </div>`;
+  }).join('');
+}
+function buildBankOptionsHTML(selected) {
+  let html = '<option value="">— اختر البنك —</option><optgroup label="🇸🇩 السودانية">';
+  SUDANESE_BANKS.forEach(b => {
+    html += `<option value="${esc(b.name)}" ${selected === b.name ? 'selected' : ''}>${esc(b.name)} (${esc(b.app)})</option>`;
+  });
+  html += '</optgroup>';
+  if (settings.customBanks.length) {
+    html += '<optgroup label="مخصصة">';
+    settings.customBanks.forEach(b => {
+      html += `<option value="${esc(b.name)}" ${selected === b.name ? 'selected' : ''}>${esc(b.name)}${b.app ? ' (' + esc(b.app) + ')' : ''}</option>`;
+    });
+    html += '</optgroup>';
+  }
+  return html;
+}
+function setImageBank(imgId, bankName) { const item = imageQueue.find(i => i.id === imgId); if (item) { item.bankName = bankName; updateAnalyzeButton(); } }
+function removeImage(imgId) { if (isAnalyzing) return; imageQueue = imageQueue.filter(i => i.id !== imgId); renderQueue(); updateAnalyzeButton(); }
+function clearQueue() {
+  if (isAnalyzing) return toast('لا يمكن المسح أثناء التحليل', 'warn');
+  if (!imageQueue.length) return;
+  showModal({ title:'مسح القائمة', message:'مسح جميع الصور؟', confirmText:'مسح', icon:'fa-trash-can', color:'rose' })
+    .then(ok => { if (!ok) return; imageQueue = []; renderQueue(); updateAnalyzeButton(); $('batchResultsWrap').classList.add('hidden'); $('emptyState').classList.remove('hidden'); });
+}
+function updateAnalyzeButton() {
+  const ready = imageQueue.length > 0 && imageQueue.every(i => i.bankName);
+  $('analyzeBtn').disabled = !ready || isAnalyzing;
+  $('clearBtn').disabled = imageQueue.length === 0 || isAnalyzing;
+  const missing = imageQueue.filter(i => !i.bankName).length;
+  if (imageQueue.length > 0 && missing > 0) $('analyzeBtn').innerHTML = `<i class="fa-solid fa-building-columns"></i> حدّد البنك لـ ${missing} صورة`;
+  else $('analyzeBtn').innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> تحليل ${imageQueue.length} صورة`;
+}
+function applyGlobalBank() {
+  const bank = $('globalBankSelect').value;
+  if (!bank) return toast('اختر بنكاً', 'err');
+  let count = 0;
+  imageQueue.forEach(i => { if (!i.bankName) { i.bankName = bank; count++; } });
+  renderQueue(); updateAnalyzeButton();
+  toast(count ? `تم تطبيق البنك على ${count} صورة` : 'كل الصور لها بنك', count ? 'ok' : 'info');
+}
+
+/* ═══ BATCH ANALYSIS ═══ */
+async function startBatchAnalysis() {
+  if (isAnalyzing) return;
+  if (!imageQueue.length) return toast('لا توجد صور', 'err');
+  const missing = imageQueue.filter(i => !i.bankName);
+  if (missing.length) return toast(`حدّد البنك لـ ${missing.length} صورة أولاً`, 'err');
+
+  isAnalyzing = true;
+  updateAnalyzeButton();
+  $('progressWrap').classList.remove('hidden');
+  $('batchResultsWrap').classList.add('hidden');
+  $('emptyState').classList.add('hidden');
+  $('txDetailWrap').classList.add('hidden');
+
+  const total = imageQueue.length;
+  let done = 0, success = 0;
+  setProgress(0, `بدء تحليل ${total} صورة…`);
+
+  let worker = null;
+  try {
+    worker = await Tesseract.createWorker(['ara','eng'], 1, {
+      logger: m => {
+        if (m.status === 'recognizing text') {
+          const globalPct = Math.round(((done * 100) + Math.round(m.progress * 100)) / total);
+          setProgress(globalPct, `تحليل الصورة ${done + 1}/${total}…`);
+        }
+      }
+    });
+  } catch (e) {
+    toast('تعذّر تحميل OCR: ' + e.message, 'err');
+    isAnalyzing = false; updateAnalyzeButton(); $('progressWrap').classList.add('hidden'); return;
+  }
+
+  const results = [];
+  for (let i = 0; i < imageQueue.length; i++) {
+    const item = imageQueue[i];
+    item.status = 'processing';
+    renderQueue();
+    $('batchCounter').textContent = `${i} / ${total} — ${item.name.slice(0, 30)}`;
+    try {
+      const { data } = await worker.recognize(item.file);
+      const text = data.text || '';
+      if (!text.trim() || text.trim().length < 5) {
+        item.status = 'error'; item.error = 'نص غير واضح';
+        renderQueue(); done++; continue;
+      }
+      const result = await deepAnalyze(text, item.name, item.bankName, { silent: true });
+      item.result = result; item.status = 'done';
+      results.push({ item, result });
+      success++;
+      if (settings.autoSave !== false) addToHistory(result, true);
+    } catch (err) {
+      item.status = 'error'; item.error = err.message || 'خطأ';
+    }
+    done++;
+    renderQueue();
+    $('batchCounter').textContent = `${done} / ${total}`;
+    setProgress(Math.round(done / total * 100), `اكتمل ${done} من ${total}`);
+  }
+
+  await worker.terminate();
+  setProgress(100, `اكتمل ${done} صورة`);
+  setTimeout(() => $('progressWrap').classList.add('hidden'), 900);
+  isAnalyzing = false;
+  updateAnalyzeButton();
+
+  logAudit('batch_analysis', `${success}/${total} نجحت`);
+  renderBatchResults(results, total);
+  renderStats(); renderAccountTotals(); renderPeriodTotals(); renderDataStats(); renderContactsList();
+  toast(`اكتمل: ${success}/${total} ✨`);
+}
+
+function renderBatchResults(results, total) {
+  const wrap = $('batchResultsWrap');
+  if (!results.length) {
+    wrap.classList.add('hidden');
+    $('emptyState').classList.remove('hidden');
+    toast('لم يتم استخراج أي نتائج', 'warn');
+    return;
+  }
+  wrap.classList.remove('hidden');
+  $('emptyState').classList.add('hidden');
+
+  const success = results.length;
+  const avgConf = Math.round(results.reduce((a, r) => a + r.result.overall, 0) / success);
+  const totals = {};
+  results.forEach(({ result }) => {
+    const amt = parseFloat(String(result.values.amount || '').replace(/,/g, ''));
+    if (!isNaN(amt)) totals[result.values.currency || '—'] = (totals[result.values.currency || '—'] || 0) + amt;
+  });
+  const totalsStr = Object.entries(totals).length
+    ? Object.entries(totals).map(([c,v]) => `${v.toLocaleString('en-US',{maximumFractionDigits:0})} ${c}`).join(' · ')
+    : '—';
+
+  $('batchTitle').textContent = `دفعة ${success} صورة`;
+  $('batchTotal').textContent = total;
+  $('batchSuccess').textContent = success;
+  $('batchAmount').textContent = totalsStr;
+  $('batchConf').textContent = avgConf + '%';
+
+  renderTxCards(results);
+  window._batchResults = results;
+  window._batchFilter = 'all';
+}
+
+function renderTxCards(results) {
+  const filter = window._batchFilter || 'all';
+  const filtered = results.filter(({ result }) => {
+    if (filter === 'ok') return result.risk.score < 50;
+    if (filter === 'risk') return result.risk.score >= 50;
+    return true;
+  });
+  const el = $('txCards');
+  if (!filtered.length) {
+    el.innerHTML = '<p class="text-xs text-slate-400 text-center py-6 col-span-full">لا توجد معاملات مطابقة</p>';
+    return;
+  }
+  el.innerHTML = filtered.map(({ item, result }, idx) => {
+    const V = result.values;
+    const riskColor = result.risk.score < 25 ? 'emerald' : result.risk.score < 50 ? 'amber' : result.risk.score < 75 ? 'orange' : 'rose';
+    const riskBg = { emerald:'bg-emerald-500/10 text-emerald-600', amber:'bg-amber-500/10 text-amber-600', orange:'bg-orange-500/10 text-orange-600', rose:'bg-rose-500/10 text-rose-600' }[riskColor];
+    const stCls = V.status === 'ناجحة' ? 'bg-emerald-500/10 text-emerald-600' : V.status === 'فاشلة' ? 'bg-rose-500/10 text-rose-600' : 'bg-amber-500/10 text-amber-600';
+    const bankProf = getBankProfile(item.bankName);
+    const sender = V.senderName || formatAccount(V.senderAccount) || '—';
+    const receiver = V.receiverName || formatAccount(V.receiverAccount) || '—';
+    return `<div class="pop-in rounded-2xl border border-slate-200 dark:border-slate-800 p-4 hover:border-brand-300 transition cursor-pointer" onclick="showTxDetail('${item.id}')">
+      <div class="flex items-start gap-3 mb-3">
+        <img src="${item.dataUrl}" class="w-14 h-14 object-cover rounded-xl border border-slate-200 dark:border-slate-800 shrink-0" onerror="this.style.display='none'" />
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-1 flex-wrap">
+            <span class="text-[10px] font-mono text-slate-400">#${idx+1}</span>
+            <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-brand-500/10 text-brand-600 dark:text-brand-400"><i class="fa-solid fa-building-columns ml-1"></i> ${esc(item.bankName)}</span>
+            ${bankProf ? `<span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-violet-500/10 text-violet-600 dark:text-violet-400"><i class="fa-solid fa-mobile-screen ml-1"></i> ${esc(bankProf.app)}</span>` : ''}
+          </div>
+          <p class="font-extrabold text-lg text-brand-600 dark:text-brand-400 leading-tight truncate">${esc(V.amount || '—')} <span class="text-xs">${esc(V.currency || '')}</span></p>
+          <p class="text-[10px] text-slate-400 truncate">${esc(item.name)}</p>
+        </div>
+        <div class="flex flex-col items-end gap-1.5 shrink-0">
+          <span class="text-[10px] font-extrabold px-2 py-1 rounded-lg ${stCls}">${esc(V.status || '—')}</span>
+          <span class="text-[10px] font-extrabold px-2 py-1 rounded-lg ${riskBg}">خطر ${result.risk.score}</span>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-2 text-[11px]">
+        <div class="truncate"><span class="text-slate-400">من حساب:</span> <b class="font-mono">${esc(formatAccount(V.senderAccount) || '—')}</b></div>
+        <div class="truncate"><span class="text-slate-400">إلى حساب:</span> <b class="font-mono">${esc(formatAccount(V.receiverAccount) || '—')}</b></div>
+        <div class="truncate"><span class="text-slate-400">المرسل:</span> <b>${esc(sender)}</b>${result.meta?.senderResolved ? ' <i class="fa-solid fa-link text-violet-500 text-[9px]" title="مربوط تلقائياً"></i>' : ''}</div>
+        <div class="truncate"><span class="text-slate-400">المستلم:</span> <b>${esc(receiver)}</b></div>
+        <div class="truncate font-mono"><span class="text-slate-400">رقم:</span> ${esc(V.ref || '—')}</div>
+        <div class="truncate"><span class="text-slate-400">تاريخ:</span> <b>${esc(V.date || '—')} ${esc(V.time || '')}</b></div>
+      </div>
+      <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-2 text-[10px]">
+          <span class="font-extrabold">الثقة: <span class="${result.overall >= 80 ? 'text-emerald-500' : result.overall >= 60 ? 'text-amber-500' : 'text-rose-500'}">${result.overall}%</span></span>
+          ${result.anomalies.length ? `<span class="text-amber-500 font-bold"><i class="fa-solid fa-triangle-exclamation"></i> ${result.anomalies.length} شذوذ</span>` : ''}
+        </div>
+        <span class="text-[10px] text-brand-500 font-bold">التفاصيل <i class="fa-solid fa-arrow-left"></i></span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterTx(type) {
+  window._batchFilter = type;
+  document.querySelectorAll('.tx-filter').forEach(b => {
+    const active = b.dataset.filter === type;
+    b.classList.toggle('bg-brand-500', active);
+    b.classList.toggle('text-white', active);
+    b.classList.toggle('bg-slate-100', !active);
+    b.classList.toggle('dark:bg-slate-800', !active);
+    b.classList.toggle('text-slate-500', !active);
+  });
+  if (window._batchResults) renderTxCards(window._batchResults);
+}
+
+function showTxDetail(imgId) {
+  const found = (window._batchResults || []).find(r => r.item.id === imgId);
+  if (!found) return;
+  const { item, result } = found;
+  const V = result.values, C = result.conf;
+
+  const wrap = $('txDetailWrap');
+  wrap.classList.remove('hidden');
+  wrap.innerHTML = `
+    <div class="rounded-3xl border border-brand-500/30 shadow-glow bg-white dark:bg-ink-800/60 overflow-hidden fade-in">
+      <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between flex-wrap gap-3">
+        <div class="flex items-center gap-3">
+          ${item.dataUrl ? `<img src="${item.dataUrl}" class="w-12 h-12 object-cover rounded-xl border border-slate-200 dark:border-slate-800" />` : ''}
+          <div>
+            <h3 class="font-extrabold text-sm flex items-center gap-2">
+              <i class="fa-solid fa-file-invoice text-brand-500"></i>
+              ${esc((item.name || '').slice(0, 40))}
+            </h3>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400">
+              <i class="fa-solid fa-building-columns ml-1"></i>${esc(item.bankName)}
+              ${V.app ? `· <i class="fa-solid fa-mobile-screen ml-1"></i>${esc(V.app)}` : ''}
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-[11px] font-extrabold px-3 py-1.5 rounded-lg bg-brand-500/10 text-brand-600 dark:text-brand-400">${result.overall}%</span>
+          <button onclick="document.getElementById('txDetailWrap').classList.add('hidden')" class="w-8 h-8 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 grid place-items-center">
+            <i class="fa-solid fa-xmark text-xs"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="p-5 space-y-5">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 p-4 text-center">
+            <p class="text-[10px] font-bold text-slate-500 mb-1">درجة المخاطر</p>
+            <p class="text-2xl font-extrabold ${result.risk.color === 'emerald' ? 'text-emerald-500' : result.risk.color === 'amber' ? 'text-amber-500' : result.risk.color === 'orange' ? 'text-orange-500' : 'text-rose-500'}">${result.risk.score}</p>
+            <p class="text-[10px] font-bold text-slate-400">${esc(result.risk.label)}</p>
+          </div>
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 p-4 text-center">
+            <p class="text-[10px] font-bold text-slate-500 mb-1">الشذوذ</p>
+            <p class="text-2xl font-extrabold text-amber-500">${result.anomalies.length}</p>
+            <p class="text-[10px] font-bold text-slate-400">تنبيه</p>
+          </div>
+          <div class="rounded-2xl border border-slate-200 dark:border-slate-800 p-4 text-center">
+            <p class="text-[10px] font-bold text-slate-500 mb-1">الرؤى</p>
+            <p class="text-2xl font-extrabold text-fuchsia-500">${result.insights.length}</p>
+            <p class="text-[10px] font-bold text-slate-400">رؤية</p>
+          </div>
+        </div>
+
+        <div>
+          <p class="text-xs font-extrabold mb-3 flex items-center gap-2"><i class="fa-solid fa-table-list text-brand-500"></i> البيانات المستخرجة <span class="text-[10px] font-normal text-slate-400">(اضغط ✏️ لتعديل الاسم)</span></p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            ${FIELDS.map(f => {
+              const val = V[f.key] ?? '';
+              if (!val) return '';
+              const conf = C[f.key] ?? 0;
+              const cc = conf >= 0.85 ? 'emerald' : conf >= 0.65 ? 'amber' : 'rose';
+              const displayVal = (f.key === 'senderAccount' || f.key === 'receiverAccount') ? maskAccount(val) : val;
+              const reason = result.reasons?.[f.key];
+              const editBtn = f.editable ? `<button onclick="event.stopPropagation();editField('${item.id}', '${f.key}')" class="edit-btn w-6 h-6 rounded-md hover:bg-brand-500/15 text-brand-500 grid place-items-center" title="تعديل"><i class="fa-solid fa-pen text-[9px]"></i></button>` : '';
+              const resolvedTag = (f.key === 'senderName' && result.meta?.senderResolved) ? '<span class="text-[9px] font-bold text-violet-500"><i class="fa-solid fa-link"></i> مربوط</span>' : '';
+              return `<div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3 flex items-center gap-3">
+                <i class="fa-solid ${f.icon} text-brand-500 w-4 text-center"></i>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center justify-between gap-2 mb-0.5">
+                    <span class="text-[10px] font-bold text-slate-500 flex items-center gap-1">${f.label} ${resolvedTag}</span>
+                    <div class="flex items-center gap-1">
+                      <span class="text-[10px] font-extrabold text-${cc}-500">${Math.round(conf*100)}%</span>
+                      ${editBtn}
+                    </div>
+                  </div>
+                  <p class="font-extrabold text-xs truncate">${esc(displayVal)}</p>
+                  ${reason ? `<p class="text-[9px] text-slate-400 truncate mt-0.5">${esc(reason)}</p>` : ''}
+                </div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+
+        ${result.anomalies.length ? `
+          <div>
+            <p class="text-xs font-extrabold mb-3 flex items-center gap-2"><i class="fa-solid fa-triangle-exclamation text-amber-500"></i> الشذوذ</p>
+            <div class="space-y-2">
+              ${result.anomalies.map(a => {
+                const L = { high:'border-rose-500/30 bg-rose-500/5', medium:'border-amber-500/30 bg-amber-500/5', low:'border-sky-500/30 bg-sky-500/5' }[a.level];
+                return `<div class="rounded-xl border ${L} p-3 flex items-start gap-3">
+                  <i class="fa-solid ${a.icon} mt-0.5 text-sm"></i>
+                  <div class="flex-1"><p class="font-extrabold text-xs">${esc(a.title)}</p><p class="text-[11px] text-slate-500 leading-5 mt-0.5">${esc(a.detail)}</p></div>
+                </div>`;
+              }).join('')}
+            </div>
+          </div>` : ''}
+
+        ${result.insights.length ? `
+          <div>
+            <p class="text-xs font-extrabold mb-3 flex items-center gap-2"><i class="fa-solid fa-lightbulb text-fuchsia-500"></i> الرؤى</p>
+            <div class="space-y-2">
+              ${result.insights.map(i => `
+                <div class="rounded-xl border border-slate-200 dark:border-slate-800 p-3 flex items-start gap-3">
+                  <i class="fa-solid ${i.icon} mt-0.5 text-sm text-brand-500"></i>
+                  <div class="flex-1"><p class="font-extrabold text-xs">${esc(i.title)}</p><p class="text-[11px] text-slate-500 leading-5 mt-0.5">${esc(i.body)}</p></div>
+                </div>`).join('')}
+            </div>
+          </div>` : ''}
+
+        <details>
+          <summary class="cursor-pointer text-xs font-extrabold text-brand-500 hover:text-brand-700 transition py-2">
+            <i class="fa-solid fa-file-lines ml-1"></i> النص الخام (OCR)
+          </summary>
+          <pre class="mt-2 text-[11px] leading-6 whitespace-pre-wrap bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 max-h-64 overflow-auto text-slate-600 dark:text-slate-300 font-mono">${esc(result.raw || '—')}</pre>
+        </details>
+      </div>
+    </div>
+  `;
+  wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+async function editField(itemId, fieldKey) {
+  const found = (window._batchResults || []).find(r => r.item.id === itemId);
+  if (!found) return;
+  const { result } = found;
+  const field = FIELDS.find(f => f.key === fieldKey);
+  if (!field) return;
+
+  const current = result.values[fieldKey] || '';
+  const account = fieldKey === 'senderName' ? result.values.senderAccount
+                : fieldKey === 'receiverName' ? result.values.receiverAccount
+                : null;
+
+  const msgParts = [];
+  if (account) msgParts.push(`الحساب المرتبط: ${account}`);
+  if (fieldKey === 'senderName' || fieldKey === 'receiverName') msgParts.push('سيُحفظ الاسم مرتبطاً برقم الحساب في سجل جهات الاتصال.');
+
+  const newVal = await showModal({
+    title: `تعديل: ${field.label}`,
+    message: msgParts.join('\n'),
+    confirmText: 'حفظ',
+    icon: 'fa-pen',
+    color: 'brand',
+    requireInput: true,
+    inputValue: current,
+    inputPlaceholder: field.label
+  });
+  if (!newVal || newVal === current) return;
+
+  result.values[fieldKey] = newVal;
+  result.conf[fieldKey] = 0.99;
+  result.reasons[fieldKey] = 'تعديل يدوي من المستخدم';
+
+  if ((fieldKey === 'senderName' || fieldKey === 'receiverName') && account) {
+    forceRenameContact(account, newVal);
+    if (fieldKey === 'senderName') result.meta.senderResolved = false;
+    if (fieldKey === 'receiverName') result.meta.receiverResolved = false;
+  }
+
+  renderTxCards(window._batchResults || []);
+  showTxDetail(itemId);
+  renderContactsList();
+  renderAccountTotals();
+  toast('تم الحفظ ✨');
+}
+
+function resetBatchResults() {
+  $('batchResultsWrap').classList.add('hidden');
+  $('txDetailWrap').classList.add('hidden');
+  $('emptyState').classList.remove('hidden');
+  window._batchResults = null;
+}
+
+/* ═══ TEXT INPUT ═══ */
+async function analyzeText() {
+  const txt = $('textInput').value.trim();
+  if (txt.length < 8) return toast('الصق نص الإشعار أولاً', 'err');
+  const bank = $('textBankSelect').value;
+  if (!bank) return toast('اختر البنك أولاً', 'err');
+  const result = await deepAnalyze(txt, 'نص', bank);
+  const pseudoItem = { id: 'txt_' + Date.now(), name: 'إدخال نصي', dataUrl: '', bankName: bank };
+  renderBatchResults([{ item: pseudoItem, result }], 1);
+  if (settings.autoSave !== false) addToHistory(result);
+  logAudit('analysis', `تحليل نص (${bank})`);
+  renderContactsList();
+  toast('تم التحليل ✨');
+}
+function loadSample() {
+  $('textInput').value =
+`بنكك — بنك الخرطوم
+تحويلات
+رقم العملية: 20177740883
+التاريخ والزمن: 19-Sep-2026 10:10:31
+من حساب: 0763 0191 6750 0001
+الى حساب: 0473 0378 1345 0001
+إسم المرسل اليه: صابر كركون نلا حامد
+رقم الموبايل: N/A
+التعليق: N/A
+المبلغ: 32,000.00`;
+  $('textBankSelect').value = SUDANESE_BANKS[0].name;
+  toast('تم تحميل نموذج بنكك', 'info');
+}
+function setProgress(pct, label) {
+  if (label) $('progressLabel').textContent = label;
+  $('progressBar').style.width = pct + '%';
+  $('progressPct').textContent = pct + '%';
+}
+
+/* ═══ HISTORY ═══ */
+let history = JSON.parse(localStorage.getItem('ta_history') || '[]');
+function addToHistory(result, silent = false) {
+  const V = result.values;
+  const record = {
+    id: Date.now() + Math.random(),
+    savedAt: new Date().toISOString(),
+    bank: V.bank || '', app: V.app || '',
+    amount: V.amount || '', currency: V.currency || '',
+    senderName: V.senderName || '', senderAccount: V.senderAccount || '',
+    receiverName: V.receiverName || '', receiverAccount: V.receiverAccount || '',
+    ref: V.ref || '', date: V.date || '', time: V.time || '',
+    channel: V.channel || '', status: V.status || 'غير محددة',
+    overall: result.overall,
+    riskScore: result.risk.score,
+    riskLabel: result.risk.label,
+    snapshot: {
+      values: V, conf: result.conf, reasons: result.reasons, meta: result.meta || {},
+      anomalies: result.anomalies, risk: result.risk,
+      insights: result.insights, validation: result.validation,
+      overall: result.overall, raw: result.raw, bankName: result.bankName
+    }
+  };
+  history.unshift(record);
+  history = history.slice(0, 500);
+  try { localStorage.setItem('ta_history', JSON.stringify(history)); }
+  catch (e) { if (!silent) toast('تعذر الحفظ', 'warn'); }
+  renderHistory(); renderStats(); renderAccountTotals(); renderPeriodTotals(); renderDataStats();
+}
+function renderHistory() {
+  const body = $('historyBody');
+  const q = ($('historySearch')?.value || '').trim().toLowerCase();
+  const filtered = !q ? history : history.filter(h =>
+    [h.amount, h.senderName, h.receiverName, h.senderAccount, h.receiverAccount, h.ref, h.bank, h.status, h.date, h.currency, h.app]
+      .some(v => String(v || '').toLowerCase().includes(q))
+  );
+  $('historyCount').textContent = `${filtered.length} / ${history.length} عنصر`;
+  $('historyEmpty').classList.toggle('hidden', filtered.length > 0);
+  body.innerHTML = filtered.map((h, i) => {
+    const ok = h.status === 'ناجحة', bad = h.status === 'فاشلة';
+    const badge = ok ? 'bg-emerald-500/10 text-emerald-600' : bad ? 'bg-rose-500/10 text-rose-600' : 'bg-amber-500/10 text-amber-600';
+    const rc = h.riskScore < 25 ? 'text-emerald-600' : h.riskScore < 50 ? 'text-amber-600' : h.riskScore < 75 ? 'text-orange-500' : 'text-rose-600';
+    const dt = [h.date, h.time].filter(Boolean).join(' ') || '—';
+    const senderAcc = h.senderAccount ? maskAccount(h.senderAccount) : '—';
+    const receiverAcc = h.receiverAccount ? maskAccount(h.receiverAccount) : '—';
+    return `<tr class="hist-row hover:bg-slate-50 dark:hover:bg-slate-800/40 transition" onclick="restoreFromHistory(${h.id})">
+      <td class="px-5 py-3 text-slate-400 text-xs font-bold">${filtered.length - i}</td>
+      <td class="px-5 py-3"><div class="text-[11px] font-extrabold truncate max-w-[130px]">${esc(h.bank || '—')}</div>${h.app ? `<div class="text-[10px] text-violet-500 font-bold">${esc(h.app)}</div>` : ''}</td>
+      <td class="px-5 py-3 font-extrabold text-brand-600 dark:text-brand-400 whitespace-nowrap">${esc(h.amount || '—')} <span class="text-[10px] opacity-70">${esc(h.currency || '')}</span></td>
+      <td class="px-5 py-3 font-mono text-[11px] whitespace-nowrap">${esc(senderAcc)}</td>
+      <td class="px-5 py-3 truncate max-w-[130px]">${esc(h.senderName || '—')}</td>
+      <td class="px-5 py-3 font-mono text-[11px] whitespace-nowrap">${esc(receiverAcc)}</td>
+      <td class="px-5 py-3 truncate max-w-[130px]">${esc(h.receiverName || '—')}</td>
+      <td class="px-5 py-3 font-mono text-xs">${esc(h.ref || '—')}</td>
+      <td class="px-5 py-3 text-xs whitespace-nowrap">${esc(dt)}</td>
+      <td class="px-5 py-3"><span class="text-xs font-extrabold ${rc}">${h.riskScore ?? '—'}</span></td>
+    </tr>`;
+  }).join('');
+}
+function restoreFromHistory(id) {
+  const rec = history.find(h => h.id === id);
+  if (!rec?.snapshot) return toast('لا يمكن الاستعادة', 'err');
+  const snap = rec.snapshot;
+  const restored = {
+    values: snap.values, conf: snap.conf, reasons: snap.reasons, meta: snap.meta,
+    anomalies: snap.anomalies, risk: snap.risk,
+    insights: snap.insights, validation: snap.validation,
+    overall: snap.overall, raw: snap.raw, cleanText: normalizeText(snap.raw || ''),
+    amountCandidates: [], bankName: snap.bankName || rec.bank
+  };
+  renderBatchResults([{ item: { id:'hist_'+id, name: 'من السجل', dataUrl: '', bankName: rec.bank }, result: restored }], 1);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  toast('تم استعادة العملية');
+}
+function renderStats() {
+  $('statCount').textContent = history.length;
+  const totals = {};
+  history.forEach(h => {
+    const n = parseFloat(String(h.amount || '').replace(/,/g, ''));
+    if (!isNaN(n)) totals[h.currency || '—'] = (totals[h.currency || '—'] || 0) + n;
+  });
+  const entries = Object.entries(totals);
+  $('statTotal').textContent = entries.length
+    ? entries.map(([c, v]) => `${v.toLocaleString('en-US', { maximumFractionDigits: 0 })} ${c}`).join(' · ')
+    : '0';
+  $('statAccuracy').textContent = history.length
+    ? Math.round(history.reduce((a, h) => a + (h.overall || 0), 0) / history.length) + '%' : '—';
+  $('statSuccess').textContent = history.filter(h => h.status === 'ناجحة').length;
+  $('statContacts').textContent = Object.keys(loadContacts()).length;
+}
+
+/* ═══ PERIOD TOTALS ═══ */
+function computePeriodTotals(period) {
+  const now = new Date();
+  const totals = {};
+  let count = 0;
+  history.forEach(h => {
+    if (!h.date) return;
+    const d = new Date(h.date);
+    if (isNaN(d.getTime())) return;
+    if (period === 'month' && (d.getFullYear() !== now.getFullYear() || d.getMonth() !== now.getMonth())) return;
+    if (period === 'year' && d.getFullYear() !== now.getFullYear()) return;
+    const n = parseFloat(String(h.amount || '').replace(/,/g, ''));
+    if (isNaN(n)) return;
+    const c = h.currency || '—';
+    totals[c] = (totals[c] || 0) + n;
+    count++;
+  });
+  return { totals, count };
+}
+function renderPeriodTotals() {
+  const now = new Date();
+  const monthNames = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+  const m = computePeriodTotals('month');
+  const y = computePeriodTotals('year');
+  const fmt = (totals) => Object.entries(totals).length
+    ? Object.entries(totals).map(([c,v]) => `${v.toLocaleString('en-US',{maximumFractionDigits:2})} ${c}`).join(' · ')
+    : '0';
+  $('monthLabel').textContent = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+  $('monthTotals').textContent = fmt(m.totals);
+  $('monthMeta').textContent = m.count ? `${m.count} عملية هذا الشهر` : 'لا توجد عمليات هذا الشهر';
+  $('yearLabel').textContent = `${now.getFullYear()}`;
+  $('yearTotals').textContent = fmt(y.totals);
+  $('yearMeta').textContent = y.count ? `${y.count} عملية هذه السنة` : 'لا توجد عمليات هذه السنة';
+}
+
+/* ═══ ACCOUNT TOTALS ═══ */
+function computeAccountTotals() {
+  const acc = {};
+  history.forEach(h => {
+    const n = parseFloat(String(h.amount || '').replace(/,/g, ''));
+    if (isNaN(n)) return;
+    const c = h.currency || '—';
+    if (h.senderAccount) {
+      const k = normAccount(h.senderAccount);
+      if (k) {
+        if (!acc[k]) acc[k] = { account: formatAccount(h.senderAccount), name: h.senderName || '', out: {}, in: {}, count: 0 };
+        acc[k].out[c] = (acc[k].out[c]||0) + n;
+        acc[k].count++;
+        if (h.senderName && !acc[k].name) acc[k].name = h.senderName;
+      }
+    }
+    if (h.receiverAccount) {
+      const k = normAccount(h.receiverAccount);
+      if (k) {
+        if (!acc[k]) acc[k] = { account: formatAccount(h.receiverAccount), name: h.receiverName || '', out: {}, in: {}, count: 0 };
+        acc[k].in[c] = (acc[k].in[c]||0) + n;
+        acc[k].count++;
+        if (h.receiverName && !acc[k].name) acc[k].name = h.receiverName;
+      }
+    }
+  });
+  const contacts = loadContacts();
+  Object.keys(acc).forEach(k => {
+    if ((!acc[k].name || acc[k].name === '—') && contacts[k]?.name) acc[k].name = contacts[k].name;
+    else if (contacts[k]?.name && !acc[k].name) acc[k].name = contacts[k].name;
+  });
+  return acc;
+}
+function renderAccountTotals() {
+  const acc = computeAccountTotals();
+  const q = ($('accountSearch')?.value || '').trim().toLowerCase();
+  const entries = Object.entries(acc).filter(([k, v]) => {
+    if (!q) return true;
+    return (v.name || '').toLowerCase().includes(q) || (v.account || '').toLowerCase().includes(q);
+  }).sort((a, b) => {
+    const sumA = Object.values(a[1].out).reduce((x,y)=>x+y,0) + Object.values(a[1].in).reduce((x,y)=>x+y,0);
+    const sumB = Object.values(b[1].out).reduce((x,y)=>x+y,0) + Object.values(b[1].in).reduce((x,y)=>x+y,0);
+    return sumB - sumA;
+  });
+  $('accountCount').textContent = `${entries.length} حساب`;
+  const empty = $('accountEmpty');
+  const body = $('accountBody');
+  if (!entries.length) { empty.classList.remove('hidden'); body.innerHTML = ''; return; }
+  empty.classList.add('hidden');
+  const fmtT = (obj) => Object.entries(obj).length
+    ? Object.entries(obj).map(([c,v]) => `${v.toLocaleString('en-US',{maximumFractionDigits:2})} ${c}`).join(' · ')
+    : '—';
+  body.innerHTML = entries.map(([k, v]) => {
+    const name = v.name || '—';
+    const initial = (name !== '—' ? name.trim().charAt(0) : '?');
+    return `<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+      <td class="px-5 py-3">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-brand-600 text-white grid place-items-center font-extrabold text-xs shrink-0">${esc(initial)}</div>
+          <span class="font-extrabold text-xs truncate">${esc(name)}</span>
+        </div>
+      </td>
+      <td class="px-5 py-3 font-mono text-[11px] whitespace-nowrap">${esc(v.account)}</td>
+      <td class="px-5 py-3"><span class="text-[11px] font-extrabold text-rose-600 dark:text-rose-400">${esc(fmtT(v.out))}</span></td>
+      <td class="px-5 py-3"><span class="text-[11px] font-extrabold text-emerald-600 dark:text-emerald-400">${esc(fmtT(v.in))}</span></td>
+      <td class="px-5 py-3"><span class="text-[10px] font-extrabold px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">${v.count}</span></td>
+      <td class="px-5 py-3"><button onclick="editContactName('${k}')" class="edit-btn w-7 h-7 rounded-md hover:bg-brand-500/15 text-brand-500 grid place-items-center"><i class="fa-solid fa-pen text-[10px]"></i></button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function clearHistory() {
+  if (!history.length) return toast('السجل فارغ', 'info');
+  const ok = await showModal({ title:'مسح السجل', message:'مسح جميع المعاملات؟', confirmText:'مسح', icon:'fa-trash-can', color:'rose' });
+  if (!ok) return;
+  history = [];
+  localStorage.removeItem('ta_history');
+  renderHistory(); renderStats(); renderAccountTotals(); renderPeriodTotals(); renderDataStats();
+  logAudit('history_clear', 'مسح السجل');
+  toast('تم المسح');
+}
+
+/* ═══ EXPORT ═══ */
+function buildBatchExport() {
+  const results = window._batchResults;
+  if (!results || !results.length) return null;
+  return {
+    version: VERSION, exportedAt: new Date().toISOString(),
+    engine: `Super AI Reasoning v${VERSION}`, count: results.length,
+    transactions: results.map(({ item, result }) => {
+      const o = {
+        source: item.name, bank: item.bankName,
+        extracted: {}, confidence: {}, reasoning: {},
+        analysis: {
+          overall: result.overall + '%',
+          risk: { score: result.risk.score, label: result.risk.label },
+          anomalies: result.anomalies, insights: result.insights,
+          meta: result.meta || {}
+        }
+      };
+      FIELDS.forEach(f => {
+        o.extracted[f.key] = result.values[f.key] ?? '';
+        o.confidence[f.key] = result.conf[f.key] ? Math.round(result.conf[f.key] * 100) + '%' : null;
+        o.reasoning[f.key] = result.reasons[f.key] || null;
+      });
+      return o;
+    })
+  };
+}
+function download(content, filename, type) {
+  const blob = new Blob([content], { type });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+  URL.revokeObjectURL(a.href);
+}
+async function exportBatchJSON() {
+  const o = buildBatchExport();
+  if (!o) return toast('لا توجد نتائج', 'err');
+  download(JSON.stringify(o, null, 2), `batch-${Date.now()}.json`, 'application/json;charset=utf-8');
+  toast('تم التصدير');
+}
+async function exportBatchCSV() {
+  const o = buildBatchExport();
+  if (!o) return toast('لا توجد نتائج', 'err');
+  const rows = [['#','المصدر','البنك','التطبيق','من حساب','المرسل','إلى حساب','المستلم','المبلغ','العملة','رقم العملية','التاريخ','الزمن','الحالة','الموبايل','التعليق','المخاطر','الثقة']];
+  o.transactions.forEach((t, i) => {
+    const e = t.extracted;
+    rows.push([i+1, t.source, t.bank, e.app || '', e.senderAccount, e.senderName, e.receiverAccount, e.receiverName,
+      e.amount, e.currency, e.ref, e.date, e.time, e.status, e.phone || '', e.note || '',
+      t.analysis.risk.score, t.analysis.overall]);
+  });
+  const csv = '\uFEFF' + rows.map(r => r.map(c => `"${String(c ?? '').replace(/"/g,'""')}"`).join(',')).join('\n');
+  download(csv, `batch-${Date.now()}.csv`, 'text/csv;charset=utf-8');
+  toast('تم تصدير CSV');
+}
+async function copyBatchJSON() {
+  const o = buildBatchExport();
+  if (!o) return toast('لا توجد نتائج', 'err');
+  navigator.clipboard.writeText(JSON.stringify(o, null, 2))
+    .then(() => toast('تم النسخ')).catch(() => toast('تعذّر', 'err'));
+}
+
+/* ═══ DATA / AUDIT ═══ */
+function exportAllData() {
+  const data = {
+    version: VERSION, exportedAt: new Date().toISOString(), settings,
+    history: JSON.parse(localStorage.getItem('ta_history') || '[]'),
+    audit: JSON.parse(localStorage.getItem('ta_audit') || '[]'),
+    contacts: loadContacts()
+  };
+  download(JSON.stringify(data, null, 2), `super-ai-backup-${Date.now()}.json`, 'application/json;charset=utf-8');
+  toast('تم التصدير');
+}
+async function importAllData(e) {
+  const file = e.target.files[0]; if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    const ok = await showModal({ title:'استيراد نسخة', message:'استبدال البيانات الحالية؟', confirmText:'استيراد', icon:'fa-upload', color:'amber' });
+    if (!ok) { e.target.value = ''; return; }
+    if (data.settings) { settings = { ...DEFAULT_SETTINGS, ...data.settings }; saveSettings(); }
+    if (data.history) localStorage.setItem('ta_history', JSON.stringify(data.history));
+    if (data.audit) localStorage.setItem('ta_audit', JSON.stringify(data.audit));
+    if (data.contacts) saveContacts(data.contacts);
+    history = JSON.parse(localStorage.getItem('ta_history') || '[]');
+    applyAllSettings(); syncSettingsUI(); renderHistory(); renderStats(); renderAccountTotals(); renderPeriodTotals();
+    toast('تم الاستيراد ✨'); e.target.value = '';
+  } catch (err) { toast('ملف غير صالح', 'err'); e.target.value = ''; }
+}
+function renderDataStats() {
+  const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+  set('dataStatsHistory', history.length);
+  set('dataStatsContacts', Object.keys(loadContacts()).length);
+  set('dataStatsAudit', JSON.parse(localStorage.getItem('ta_audit') || '[]').length);
+  let size = 0;
+  for (const k in localStorage) if (k.startsWith('ta_')) size += (localStorage.getItem(k) || '').length;
+  const kb = size / 1024;
+  set('dataStatsSize', kb < 1024 ? kb.toFixed(1) + ' KB' : (kb/1024).toFixed(2) + ' MB');
+}
+async function factoryReset() {
+  const ok = await showModal({ title:'ضبط المصنع', message:'حذف كل شيء نهائياً؟', confirmText:'حذف الكل', icon:'fa-bomb', color:'rose', requirePassword: true });
+  if (!ok) return;
+  const admin = await getAdmin();
+  if (await hashPwd(ok) !== admin.passwordHash) return toast('كلمة المرور خاطئة', 'err');
+  Object.keys(localStorage).filter(k => k.startsWith('ta_')).forEach(k => localStorage.removeItem(k));
+  sessionStorage.clear();
+  toast('سيتم إعادة التحميل'); setTimeout(() => location.reload(), 1200);
+}
+function logAudit(event, details) {
+  const log = JSON.parse(localStorage.getItem('ta_audit') || '[]');
+  log.unshift({ id: Date.now(), event, details, at: new Date().toISOString() });
+  localStorage.setItem('ta_audit', JSON.stringify(log.slice(0, 200)));
+}
+function renderAuditLog() {
+  const log = JSON.parse(localStorage.getItem('ta_audit') || '[]');
+  const el = $('auditList'); if (!el) return;
+  if (!log.length) { el.innerHTML = '<p class="text-center text-xs text-slate-400 py-8">لا توجد أحداث</p>'; return; }
+  el.innerHTML = log.slice(0, 100).map(l => `
+    <div class="px-6 py-3 flex items-start gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+      <div class="w-9 h-9 rounded-xl bg-brand-500/10 text-brand-500 grid place-items-center shrink-0"><i class="fa-solid fa-circle-info text-xs"></i></div>
+      <div class="flex-1 min-w-0">
+        <p class="font-extrabold text-xs">${esc(l.details || l.event)}</p>
+        <p class="text-[10px] text-slate-400 mt-0.5">${new Date(l.at).toLocaleString('ar')} · ${esc(l.event)}</p>
+      </div>
+    </div>`).join('');
+}
+async function clearAuditLog() {
+  const ok = await showModal({ title:'مسح سجل الأحداث', message:'متأكد؟', confirmText:'مسح', icon:'fa-trash-can', color:'rose' });
+  if (!ok) return;
+  localStorage.removeItem('ta_audit'); renderAuditLog(); renderDataStats(); toast('تم المسح');
+}
+
+/* ═══ TABS & DRAG ═══ */
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => {
+      b.classList.remove('bg-white','dark:bg-slate-800','shadow-sm','text-brand-600','dark:text-brand-400');
+      b.classList.add('text-slate-500','dark:text-slate-400');
+    });
+    btn.classList.add('bg-white','dark:bg-slate-800','shadow-sm','text-brand-600','dark:text-brand-400');
+    btn.classList.remove('text-slate-500','dark:text-slate-400');
+    const tab = btn.dataset.tab;
+    $('panel-image').classList.toggle('hidden', tab !== 'image');
+    $('panel-text').classList.toggle('hidden', tab !== 'text');
+  });
+});
+const dz = $('dropzone');
+if (dz) {
+  dz.addEventListener('click', () => $('fileInput').click());
+  $('fileInput').addEventListener('change', e => { handleFiles(e.target.files); e.target.value = ''; });
+  ['dragenter','dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('dropzone-active'); }));
+  ['dragleave','drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('dropzone-active'); }));
+  dz.addEventListener('drop', e => { e.preventDefault(); handleFiles(e.dataTransfer.files); });
+}
+document.addEventListener('paste', e => {
+  const items = e.clipboardData?.items; if (!items) return;
+  const imgs = [];
+  for (const it of items) if (it.type.startsWith('image/')) imgs.push(it.getAsFile());
+  if (imgs.length) { handleFiles(imgs); toast('تم لصق الصور', 'info'); }
+});
+
+/* ═══ INIT ═══ */
+(async function init() {
+  loadSettings();
+  await getAdmin();
+  const sess = getSession();
+  if (sess) showApp();
+  else { $('loginView').classList.remove('hidden'); setTimeout(() => $('loginUser').focus(), 300); }
+  applyAllSettings();
+  populateBankSelects();
+  renderHistory(); renderStats(); renderAccountTotals(); renderPeriodTotals(); syncSettingsUI(); updateAnalyzeButton();
+  console.log(`%c Super AI v${VERSION} · Sudanese Banks · Contact Registry + Manual Edit `, 'background:#337bff;color:white;padding:4px 8px;border-radius:4px;font-weight:bold;');
+  console.log('Admin: admin / admin123');
+})();
+</script>
+</body>
+</html>
